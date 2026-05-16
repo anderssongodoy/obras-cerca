@@ -1,0 +1,236 @@
+// Obras Cerca — Schema real de la BD obrascerca (PostgreSQL 17)
+// Generado dinámicamente desde information_schema el 2026-05-15
+// Pegar en https://dbdiagram.io/d
+
+Project ObrasCerca {
+  database_type: "PostgreSQL"
+  Note: "Ámbito MVP: Lima Metropolitana + Provincia Constitucional del Callao (50 distritos). hack@latam 2026."
+}
+
+Enum clasif_paralizacion {
+  "vigente"
+  "dudosa"
+  "zombie"
+}
+
+Enum tipo_senal {
+  "paralizacion"
+  "paralizacion_prolongada"
+  "concentracion_menores"
+  "monto_atipico"
+  "sanciones_oece"
+  "avance_fisico_estancado"
+}
+
+Table contratista {
+  id integer [pk, not null]
+  ruc varchar(11) [unique, not null]
+  razon_social text [not null]
+  estado_ruc text
+  tiene_sancion boolean [not null]
+  fuente_sancion text
+  actualizado_en timestamptz
+}
+
+Table distrito {
+  id integer [pk, not null]
+  ubigeo varchar(6) [unique, not null]
+  departamento text [not null]
+  provincia text [not null]
+  distrito text [not null]
+  ambito_mvp boolean [not null]
+  geom_wkt text
+  centroide_lat numeric(10,7)
+  centroide_lon numeric(10,7)
+}
+
+Table entidad {
+  id integer [pk, not null]
+  codigo_entidad text
+  nombre text [not null]
+  nombre_norm text [unique, not null]
+  nivel_gobierno text
+  sector text
+}
+
+Table explicacion_contratista {
+  contratista_id integer [pk, not null]
+  tipo text [pk, not null]
+  provider text [not null]
+  modelo text
+  texto text [not null]
+  tokens_input integer
+  tokens_output integer
+  generado_en timestamptz [not null]
+}
+
+Table explicacion_obra {
+  obra_id bigint [pk, not null]
+  tipo text [pk, not null]
+  provider text [not null]
+  modelo text
+  texto text [not null]
+  tokens_input integer
+  tokens_output integer
+  generado_en timestamptz [not null]
+}
+
+Table fuente_dato {
+  id integer [pk, not null]
+  nombre text [unique, not null]
+  descripcion text
+  url text
+  ultima_ingestion timestamptz
+  filas_ingestadas bigint
+  notas text
+}
+
+Table inei_pobreza_distrito {
+  distrito_id integer [pk, not null]
+  pobreza_monetaria numeric(5,2)
+  pobreza_extrema numeric(5,2)
+  poblacion_estimada integer
+  anio_referencia integer
+  fuente text
+}
+
+Table obra {
+  id bigint [pk, not null]
+  codigo_infobras bigint [unique]
+  codigo_unico_inversion text
+  codigo_snip text
+  nombre text [not null]
+  entidad_id integer
+  contratista_id integer
+  supervisor_id integer
+  distrito_id integer
+  direccion text
+  tipo_ubicacion text
+  latitud numeric(10,7)
+  longitud numeric(10,7)
+  geom_fuente text
+  naturaleza text
+  tipo_obra_nivel1 text
+  tipo_obra_nivel2 text
+  tipo_obra_nivel3 text
+  modalidad_ejecucion text
+  sector text
+  estado_ejecucion text
+  fecha_inicio date
+  fecha_fin_programada date
+  fecha_fin_reprogramada date
+  fecha_fin_real date
+  fecha_ultimo_avance date
+  monto_contrato numeric(18,2)
+  monto_aprobado numeric(18,2)
+  monto_ejecutado numeric(18,2)
+  moneda varchar(8)
+  avance_fisico_real numeric(6,2)
+  avance_fisico_programado numeric(6,2)
+  porcentaje_ejecucion_financiera numeric(6,2)
+  existe_paralizacion boolean [not null]
+  marca_reconstruccion boolean [not null]
+  marca_reactivacion_economica boolean [not null]
+  es_reservada boolean [not null]
+  fuente text [not null]
+  ingestado_en timestamptz [not null]
+  clasificacion_paralizacion clasif_paralizacion
+  confirmada_contraloria_2025 boolean [not null]
+  dias_paralizada_real integer
+  dias_sin_avance integer
+}
+
+Table obra_avance {
+  id bigint [pk, not null]
+  obra_id bigint [unique, not null]
+  anio integer [unique]
+  mes integer [unique]
+  fecha_registro date
+  avance_fisico_real numeric(6,2)
+  avance_fisico_programado numeric(6,2)
+  monto_ejecutado numeric(18,2)
+  monto_programado numeric(18,2)
+}
+
+Table obra_paralizacion {
+  id bigint [pk, not null]
+  obra_id bigint [unique, not null]
+  fecha_paralizacion date [unique]
+  dias_paralizado integer
+  causal text
+  comentarios text
+  avance_fisico_al_par numeric(6,2)
+  avance_fin_al_par numeric(6,2)
+  fuente text [not null]
+  ingestado_en timestamptz [not null]
+  confirmada_contraloria_2025 boolean [not null]
+  dias_paralizada_real integer
+}
+
+Table orden_compra_servicio {
+  id bigint [pk, not null]
+  numero_orden text
+  tipo text
+  entidad_id integer
+  contratista_id integer
+  monto_soles numeric(18,2)
+  fecha_emision date
+  descripcion text
+  url_documento text
+  fuente text [not null]
+  ingestado_en timestamptz [not null]
+}
+
+Table procedimiento_seleccion {
+  id bigint [pk, not null]
+  ocid text [unique]
+  fuente_ocds text
+  nomenclatura text
+  entidad_id integer
+  contratista_id integer
+  objeto text
+  descripcion text
+  monto_referencial numeric(18,2)
+  monto_adjudicado numeric(18,2)
+  moneda varchar(8)
+  numero_postores integer
+  fecha_convocatoria date
+  fecha_buena_pro date
+  fecha_contrato date
+  estado text
+  tipo_procedimiento text
+  obra_id bigint
+  ingestado_en timestamptz [not null]
+}
+
+Table senal_revision {
+  id bigint [pk, not null]
+  tipo tipo_senal [not null]
+  obra_id bigint
+  contratista_id integer
+  entidad_id integer
+  titulo text [not null]
+  explicacion text
+  score numeric
+  formula text
+  evidencia jsonb
+  detectada_en timestamptz [not null]
+  activa boolean [not null]
+}
+
+// --- Relaciones (FKs reales) ---
+Ref: inei_pobreza_distrito.distrito_id > distrito.id
+Ref: obra.contratista_id > contratista.id
+Ref: obra.distrito_id > distrito.id
+Ref: obra.entidad_id > entidad.id
+Ref: obra.supervisor_id > contratista.id
+Ref: obra_avance.obra_id > obra.id
+Ref: obra_paralizacion.obra_id > obra.id
+Ref: orden_compra_servicio.contratista_id > contratista.id
+Ref: orden_compra_servicio.entidad_id > entidad.id
+Ref: procedimiento_seleccion.contratista_id > contratista.id
+Ref: procedimiento_seleccion.entidad_id > entidad.id
+Ref: procedimiento_seleccion.obra_id > obra.id
+Ref: senal_revision.contratista_id > contratista.id
+Ref: senal_revision.entidad_id > entidad.id
+Ref: senal_revision.obra_id > obra.id

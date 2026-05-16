@@ -1,0 +1,81 @@
+# ============================================================
+# Obras Cerca — .gitignore
+# ============================================================
+
+# --- Datos crudos descargados (pesados, regenerables) ---
+scrapers/data/
+backend/scripts/cache/
+
+# --- Variables de entorno y secretos ---
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+htmlcov/
+build/
+dist/
+
+# --- Editores e IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Claude Code / playwright-cli (artifacts locales) ---
+.claude/
+.playwright/
+.playwright-cli/
+
+# --- Outputs temporales ---
+*.tmp
+*.bak
+
+# --- Archivos OS ---
+desktop.ini
+Icon?
+
+# --- Node (cuando llegue el frontend) ---
+node_modules/
+.next/
+.nuxt/
+dist/
+.angular/
+*.tsbuildinfo
+.parcel-cache/
+
+# --- Frontend builds ---
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/node_modules/
+
+# --- BD dumps locales ---
+*.sql.bak
+*.dump
+
+# --- Reportes generados ---
+backend/scripts/*.output

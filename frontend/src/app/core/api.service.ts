@@ -6,10 +6,25 @@ import {
   VerificacionLive
 } from './models';
 
+// Detecta automáticamente la URL base del API según dónde se sirve el frontend:
+//   - Si corremos en localhost (dev): backend en http://localhost:8000
+//   - Si corremos en cualquier otro host (prod, Vercel, preview): backend en api.<host>
+// Se puede sobrescribir vía window.__API_BASE__ si hace falta.
+function resolveApiBase(): string {
+  if (typeof window === 'undefined') return 'http://localhost:8000';
+  const override = (window as unknown as { __API_BASE__?: string }).__API_BASE__;
+  if (override) return override;
+  const host = window.location.hostname;
+  if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.')) {
+    return 'http://localhost:8000';
+  }
+  return 'https://api.obrascerca.trinitylabs.app';
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private http = inject(HttpClient);
-  private base = 'http://localhost:8000';
+  private base = resolveApiBase();
 
   stats(): Observable<Stats> {
     return this.http.get<Stats>(`${this.base}/api/stats`);

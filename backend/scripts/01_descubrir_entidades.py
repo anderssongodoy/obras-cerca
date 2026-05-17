@@ -16,12 +16,14 @@ Uso:
 """
 from __future__ import annotations
 
+import os
+
 from _common import norm
 
 import psycopg
 from app.clients.pte import PTEClient
 
-DSN = "host=localhost user=postgres password=123 dbname=obrascerca_v2"
+DSN = os.getenv("DB_DSN", "host=localhost user=postgres password=123 dbname=obrascerca_v2")
 
 
 # Mapeo Tipo_Pod -> (tipo_entidad enum, nivel_gobierno)

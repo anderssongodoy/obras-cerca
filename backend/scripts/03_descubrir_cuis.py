@@ -14,6 +14,7 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import os
 import time
 from datetime import date
 
@@ -22,7 +23,7 @@ from app.clients.mef import MEFClient
 
 from _common import norm
 
-DSN = "host=localhost user=postgres password=123 dbname=obrascerca_v2"
+DSN = os.getenv("DB_DSN", "host=localhost user=postgres password=123 dbname=obrascerca_v2")
 
 
 def cargar_a_proyecto_mef(conn, fila: dict, entidad_id: int, periodo: int) -> int:

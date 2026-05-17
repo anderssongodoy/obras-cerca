@@ -13,12 +13,13 @@ Tipos generados:
 from __future__ import annotations
 
 import json
+import os
 
 import psycopg
 
 from _common import norm
 
-DSN = "host=localhost user=postgres password=123 dbname=obrascerca_v2"
+DSN = os.getenv("DB_DSN", "host=localhost user=postgres password=123 dbname=obrascerca_v2")
 
 
 def main() -> int:

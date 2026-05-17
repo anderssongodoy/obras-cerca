@@ -19,6 +19,7 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import os
 import time
 from datetime import datetime
 
@@ -28,7 +29,7 @@ from app.clients.mef import _dotnet_date
 
 from _common import norm
 
-DSN = "host=localhost user=postgres password=123 dbname=obrascerca_v2"
+DSN = os.getenv("DB_DSN", "host=localhost user=postgres password=123 dbname=obrascerca_v2")
 
 
 def parse_pct(s: str | None) -> float | None:

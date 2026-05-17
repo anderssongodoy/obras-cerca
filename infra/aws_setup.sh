@@ -129,7 +129,7 @@ INGESTA_TOKEN=$(openssl rand -hex 32)
 cat > "$APP_DIR/backend/.env" <<EOF
 APP_ENV=production
 DB_DSN=$DSN
-ALLOWED_ORIGINS=https://$DOMAIN
+ALLOWED_ORIGINS=*
 LLM_PROVIDER=stub
 INGESTA_TOKEN=$INGESTA_TOKEN
 EOF
@@ -139,13 +139,15 @@ log ".env creado"
 # Schema + seed
 log "Paso 5b/8: Schema + datos demo"
 cd "$APP_DIR/db"
-# setup.py espera que la BD no exista. Como ya la creamos arriba, vamos directo al schema.
+# Schema y seed van como user app (es el owner de las tablas)
 PGPASSWORD="$DB_PASS" psql -h localhost -U "$DB_USER" -d "$DB_NAME" -f schema.sql
 PGPASSWORD="$DB_PASS" psql -h localhost -U "$DB_USER" -d "$DB_NAME" -f seed_distritos.sql
 if [ -f "seeds/demo_snapshot.sql" ]; then
     # Filtrar meta-comandos \restrict/\unrestrict de pg_dump 17+
     grep -v '^\\' seeds/demo_snapshot.sql > /tmp/demo_clean.sql
-    PGPASSWORD="$DB_PASS" psql -h localhost -U "$DB_USER" -d "$DB_NAME" \
+    # Snapshot va como postgres (superuser) porque necesita SET session_replication_role
+    # para deferir las FKs (self-FK obra.obra_padre_id)
+    sudo -u postgres psql -d "$DB_NAME" \
         -c "SET session_replication_role = replica;" \
         -f /tmp/demo_clean.sql \
         -c "SET session_replication_role = origin;"

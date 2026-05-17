@@ -32,6 +32,8 @@ def listar(
     paralizadas_wfs: Optional[bool] = None,
     inactivas_mef: Optional[bool] = None,
     con_saldos: Optional[bool] = None,
+    con_senal: Optional[bool] = None,
+    con_informe: Optional[bool] = None,
     contratista_ruc: Optional[str] = None,
     q: Optional[str] = None,
     limit: int = Query(200, ge=1, le=2000),
@@ -48,6 +50,10 @@ def listar(
         where.append("estado_proyecto_mef = 'DESACTIVADO_PERMANENTE'")
     if con_saldos:
         where.append("es_saldo_obra")
+    if con_informe:
+        where.append("existe_informe_control")
+    if con_senal:
+        where.append("EXISTS (SELECT 1 FROM senal_revision sr WHERE sr.obra_id = v_obra_mvp.id AND sr.activa)")
     if contratista_ruc:
         where.append("contratista_ruc = %s")
         params.append(contratista_ruc)

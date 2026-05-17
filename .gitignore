@@ -83,5 +83,13 @@ frontend/node_modules/
 *.sql.bak
 *.dump
 
+# --- Terraform ---
+infra/.terraform/
+infra/.terraform.lock.hcl
+infra/terraform.tfvars
+infra/*.tfstate
+infra/*.tfstate.backup
+infra/lambda_*.zip
+
 # --- Reportes generados ---
 backend/scripts/*.output

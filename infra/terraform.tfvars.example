@@ -1,0 +1,9 @@
+# Copia este archivo a terraform.tfvars y completa los valores reales.
+# terraform.tfvars está en .gitignore — NUNCA lo commitees con tokens reales.
+
+aws_region    = "us-east-1"
+backend_url   = "https://obrascerca.trinitylabs.app"
+
+# Este valor lo imprime aws_setup.sh al final de su ejecución.
+# Búscalo en la salida buscando: "INGESTA_TOKEN para Terraform:"
+ingesta_token = "REEMPLAZAR_CON_EL_TOKEN_QUE_IMPRIMIO_aws_setup.sh"

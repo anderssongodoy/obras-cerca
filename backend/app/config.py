@@ -29,3 +29,8 @@ HTTP_UA = os.getenv(
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
 )
+
+# Token compartido entre la Lambda de EventBridge y el endpoint /api/admin/ingesta-diaria.
+# Si está vacío, el endpoint admin rechaza todo (modo seguro por default).
+INGESTA_TOKEN = os.getenv("INGESTA_TOKEN", "")
+SCRIPTS_DIR = BACKEND_DIR / "scripts"

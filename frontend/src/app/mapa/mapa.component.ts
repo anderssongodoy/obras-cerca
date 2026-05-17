@@ -37,8 +37,127 @@ declare const L: any;
         <span class="ml-auto text-sm text-stone-500">{{ obras().length }} obras visibles</span>
       </div>
 
-      <!-- Mapa -->
-      <div #map class="relative bg-stone-100 rounded-lg overflow-hidden border border-stone-200" style="height: 60vh;"></div>
+      <!-- Mapa + panel flotante -->
+      <div class="relative">
+        <div #map class="bg-stone-100 rounded-lg overflow-hidden border border-stone-200" style="height: 65vh;"></div>
+
+        <!-- Panel flotante de obra seleccionada -->
+        <aside *ngIf="seleccionada() as s"
+               class="absolute top-4 right-4 w-[min(380px,calc(100%-2rem))] bg-paper border border-stone-300 rounded-lg shadow-xl overflow-hidden z-[1000]"
+               style="max-height: calc(65vh - 2rem); display: flex; flex-direction: column;">
+
+          <!-- Header del panel -->
+          <div class="flex items-start justify-between gap-3 px-5 pt-4 pb-3 border-b border-stone-200 bg-white">
+            <div class="flex items-center gap-2 flex-wrap min-w-0">
+              <span class="text-[10px] text-stone-500 uppercase tracking-wide font-medium">
+                NOBR {{ s.nobr_id }}
+              </span>
+              <span class="text-stone-300 text-xs">·</span>
+              <span class="text-[10px] text-stone-500 uppercase tracking-wide font-medium">
+                CUI {{ s.cui }}
+              </span>
+              <span *ngIf="s.es_saldo_obra" class="text-[10px] px-1.5 py-0.5 bg-stone-100 text-stone-700 rounded">
+                Saldo
+              </span>
+            </div>
+            <button (click)="cerrarPanel()" class="text-stone-400 hover:text-stone-700 shrink-0 -mr-1 -mt-1 p-1" aria-label="Cerrar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Contenido scrollable -->
+          <div class="px-5 py-4 overflow-y-auto" style="flex: 1; min-height: 0;">
+            <h3 class="font-serif text-lg text-stone-900 leading-tight mb-2">
+              {{ s.nombre_obra || s.nombre_inversion || '(sin nombre registrado)' }}
+            </h3>
+            <p class="text-sm text-stone-600 mb-4">
+              <span *ngIf="s.entidad_nombre">{{ s.entidad_nombre }}</span>
+              <span *ngIf="s.entidad_nombre" class="text-stone-300"> · </span>
+              <span>{{ s.distrito_nombre }}</span>
+            </p>
+
+            <!-- 3 estados oficiales lado a lado (versión compacta) -->
+            <div class="mb-4">
+              <p class="text-[10px] text-stone-500 uppercase tracking-wide font-medium mb-2">
+                Lo que dice cada fuente
+              </p>
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between gap-3 text-sm">
+                  <span class="text-stone-500">MEF</span>
+                  <span class="font-medium" [class.text-terracotta]="esCritico(s.estado_proyecto_mef)"
+                                              [class.text-stone-900]="!esCritico(s.estado_proyecto_mef)">
+                    {{ s.estado_proyecto_mef || '—' }}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between gap-3 text-sm">
+                  <span class="text-stone-500">Contraloría WFS</span>
+                  <span class="font-medium" [class.text-terracotta]="s.estado_obra_wfs === 'Paralizada'"
+                                              [class.text-stone-900]="s.estado_obra_wfs !== 'Paralizada'">
+                    {{ s.estado_obra_wfs || '— (sin feature)' }}
+                  </span>
+                </div>
+                <div class="flex items-center justify-between gap-3 text-sm">
+                  <span class="text-stone-500">Infobras</span>
+                  <span class="font-medium text-stone-900">{{ s.estado_obra_ficha || '—' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Indicador de discrepancia -->
+            <div *ngIf="hayDiscrepancia(s)" class="mb-4 p-2.5 bg-terracotta/5 border border-terracotta/20 rounded text-xs text-stone-700">
+              <strong class="text-terracotta">⚠ Las fuentes no coinciden.</strong> Revisa la ficha completa.
+            </div>
+
+            <!-- Métricas -->
+            <div class="grid grid-cols-2 gap-3 mb-4">
+              <div class="bg-stone-50 border border-stone-200 rounded p-2.5">
+                <p class="text-[10px] text-stone-500 uppercase tracking-wide mb-0.5">Avance MEF</p>
+                <p class="font-serif text-lg text-stone-900">{{ s.avance_fisico_mef ?? '—' }}<span class="text-sm text-stone-400">{{ s.avance_fisico_mef !== null ? '%' : '' }}</span></p>
+              </div>
+              <div class="bg-stone-50 border border-stone-200 rounded p-2.5">
+                <p class="text-[10px] text-stone-500 uppercase tracking-wide mb-0.5">Avance Infobras</p>
+                <p class="font-serif text-lg text-stone-900">{{ s.avance_fisico_infobras ?? '—' }}<span class="text-sm text-stone-400">{{ s.avance_fisico_infobras !== null ? '%' : '' }}</span></p>
+              </div>
+              <div *ngIf="s.costo_actualizado" class="bg-stone-50 border border-stone-200 rounded p-2.5">
+                <p class="text-[10px] text-stone-500 uppercase tracking-wide mb-0.5">Costo actualizado</p>
+                <p class="font-serif text-sm text-stone-900">S/ {{ s.costo_actualizado | number:'1.0-0' }}</p>
+              </div>
+              <div *ngIf="s.sobrecosto_pct !== null"
+                   class="border rounded p-2.5"
+                   [class.bg-terracotta]="(s.sobrecosto_pct ?? 0) > 30"
+                   [class.text-white]="(s.sobrecosto_pct ?? 0) > 30"
+                   [class.border-terracotta]="(s.sobrecosto_pct ?? 0) > 30"
+                   [class.bg-stone-50]="(s.sobrecosto_pct ?? 0) <= 30"
+                   [class.border-stone-200]="(s.sobrecosto_pct ?? 0) <= 30">
+                <p class="text-[10px] uppercase tracking-wide mb-0.5"
+                   [class.text-white]="(s.sobrecosto_pct ?? 0) > 30"
+                   [class.text-stone-500]="(s.sobrecosto_pct ?? 0) <= 30">Sobrecosto</p>
+                <p class="font-serif text-lg">{{ s.sobrecosto_pct }}%</p>
+              </div>
+            </div>
+
+            <!-- Badges -->
+            <div class="flex flex-wrap gap-1.5 mb-4">
+              <span *ngIf="s.existe_informe_control" class="text-[10px] px-2 py-0.5 bg-stone-900 text-stone-50 rounded">
+                Informe Contraloría
+              </span>
+              <span *ngIf="s.existe_paralizacion_mef" class="text-[10px] px-2 py-0.5 bg-terracotta/10 text-terracotta rounded">
+                Paralización MEF
+              </span>
+            </div>
+          </div>
+
+          <!-- Footer del panel: CTA -->
+          <div class="px-5 py-3 border-t border-stone-200 bg-white">
+            <a [routerLink]="['/obra', s.id]"
+               class="block w-full text-center px-3 py-2 bg-stone-900 text-stone-50 rounded text-sm font-medium hover:bg-stone-800 transition-colors">
+              Ver ficha completa →
+            </a>
+          </div>
+        </aside>
+      </div>
 
       <!-- Leyenda -->
       <div class="mt-3 flex items-center gap-6 text-xs text-stone-600">
@@ -94,6 +213,7 @@ export class MapaComponent implements AfterViewInit, OnDestroy {
   private layer: any;
 
   obras = signal<ObraResumen[]>([]);
+  seleccionada = signal<ObraResumen | null>(null);
   soloParalizadas = signal(false);
   soloInactivas = signal(false);
   conSaldos = signal(false);
@@ -105,6 +225,8 @@ export class MapaComponent implements AfterViewInit, OnDestroy {
       attribution: '© OpenStreetMap',
     }).addTo(this.map);
     this.layer = L.layerGroup().addTo(this.map);
+    // Cerrar panel al clickear fuera de un marker
+    this.map.on('click', () => this.cerrarPanel());
     this.recargar();
   }
 
@@ -134,6 +256,26 @@ export class MapaComponent implements AfterViewInit, OnDestroy {
     return u.includes('DESACTIVA') || u.includes('PARALIZ');
   }
 
+  hayDiscrepancia(o: ObraResumen): boolean {
+    const mef = (o.estado_proyecto_mef || '').toUpperCase();
+    const wfs = (o.estado_obra_wfs || '').toUpperCase();
+    const inf = (o.estado_obra_ficha || '').toUpperCase();
+    if (mef === 'ACTIVO' && wfs.includes('PARALIZ')) return true;
+    if (mef.includes('DESACTIVA') && (inf.includes('EJECUCI') || wfs.includes('EJECUCI'))) return true;
+    if (o.avance_fisico_mef !== null && o.avance_fisico_infobras !== null) {
+      if (Math.abs(Number(o.avance_fisico_mef) - Number(o.avance_fisico_infobras)) > 10) return true;
+    }
+    return false;
+  }
+
+  abrirPanel(obra: ObraResumen) {
+    this.seleccionada.set(obra);
+  }
+
+  cerrarPanel() {
+    this.seleccionada.set(null);
+  }
+
   private draw(items: ObraResumen[]) {
     this.layer.clearLayers();
     for (const o of items) {
@@ -141,21 +283,17 @@ export class MapaComponent implements AfterViewInit, OnDestroy {
       const critico = o.estado_obra_wfs === 'Paralizada'
                    || (o.estado_proyecto_mef || '').toUpperCase().includes('DESACTIVA');
       const color = critico ? '#9f5442' : '#a8a29e';
-      const m = L.circleMarker([o.latitud, o.longitud], {
+      const m = L.circleMarker([Number(o.latitud), Number(o.longitud)], {
         radius: critico ? 8 : 6,
         color,
         fillColor: color,
         fillOpacity: 0.75,
         weight: 1.5,
       }).addTo(this.layer);
-      const url = `/obra/${o.id}`;
-      const popup = `
-        <strong style="font-family: 'Source Serif 4', Georgia, serif;">${o.nombre_obra || o.nombre_inversion || '(sin nombre)'}</strong><br>
-        <span style="color:#78716c">${o.distrito_nombre || ''} · ${o.entidad_nombre || ''}</span><br>
-        <small>MEF: <b>${o.estado_proyecto_mef || '?'}</b> · WFS: <b style="color:${critico ? '#9f5442' : 'inherit'}">${o.estado_obra_wfs || '—'}</b></small><br>
-        <a href="${url}" style="color:#9f5442">Ver ficha →</a>
-      `;
-      m.bindPopup(popup);
+      m.on('click', (e: any) => {
+        L.DomEvent.stopPropagation(e);  // evita que el click del mapa cierre el panel
+        this.abrirPanel(o);
+      });
     }
   }
 }

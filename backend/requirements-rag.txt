@@ -1,0 +1,15 @@
+# Dependencies adicionales SOLO para el script 07_indexar_informes.py.
+# Estas las instalas en TU PC, NO en la EC2.
+#
+# Instalación:
+#   cd backend
+#   .\.venv\Scripts\Activate.ps1    # o source .venv/bin/activate en Linux/Mac
+#   pip install -r requirements-rag.txt
+#
+# Notas:
+#   - sentence-transformers descarga ~500 MB la primera vez (cache en ~/.cache/huggingface)
+#   - torch va a CPU por default. Si tienes GPU NVIDIA y quieres usarla, instala torch+cuda primero.
+
+sentence-transformers>=3.0.0,<4.0.0
+pymupdf>=1.24.0,<2.0.0
+tqdm>=4.66.0

@@ -1,0 +1,441 @@
+{
+  "info": {
+    "_postman_id": "f3a2b1c4-d5e6-4789-9abc-obrascerca0001",
+    "name": "ObrasCerca — PTE / SIAF-MEF / Invierte.pe / Infobras",
+    "description": "Trazabilidad completa de endpoints publicos peruanos para enriquecer una obra publica.\n\nFlujo:\n  id_entidad (PTE)  ->  IdUE (SIAF)  ->  CUI (Invierte.pe)  ->  NOBR_ID (Infobras)\n\nVariables precargadas con ejemplo real verificado:\n  Municipalidad Distrital de San Isidro - Lima\n    id_entidad = 10080\n    IdUE       = 301280\n    CUI        = 2325535  (MEJORAMIENTO DEL SERVICIO DE SEGURIDAD CIUDADANA)\n    NOBR_ID    = 545958\n\nCambiando solo id_entidad podes reutilizar la collection contra cualquier municipalidad.\nLuego corres el paso 1 para obtener el IdUE real, el paso 4 para obtener CUIs y el paso 7 para obtener NOBR_ID.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_pte",
+      "value": "https://transparencia.gob.pe",
+      "type": "string"
+    },
+    {
+      "key": "base_mef",
+      "value": "https://ofi5.mef.gob.pe",
+      "type": "string"
+    },
+    {
+      "key": "base_infobras",
+      "value": "https://infobras.contraloria.gob.pe",
+      "type": "string"
+    },
+    {
+      "key": "id_entidad",
+      "value": "10080",
+      "type": "string",
+      "description": "ID PTE (Portal Transparencia Estandar). Ejemplo: 10080 = San Isidro."
+    },
+    {
+      "key": "IdUE",
+      "value": "301280",
+      "type": "string",
+      "description": "Codigo Unidad Ejecutora SIAF. Se obtiene del paso 1 (regex IdUE=NNN en el HTML)."
+    },
+    {
+      "key": "CUI",
+      "value": "2325535",
+      "type": "string",
+      "description": "Codigo Unico de Inversion (Invierte.pe). Se obtiene del paso 4 (lista de proyectos)."
+    },
+    {
+      "key": "NOBR_ID",
+      "value": "545958",
+      "type": "string",
+      "description": "ID Infobras (Contraloria). Se obtiene del paso 7 (verInfObras2)."
+    },
+    {
+      "key": "periodo",
+      "value": "2026",
+      "type": "string",
+      "description": "Anio fiscal del MEF."
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Entidad (PTE -> IdUE)",
+      "description": "Mapeo del Portal de Transparencia (PTE) al codigo SIAF de Unidad Ejecutora.",
+      "item": [
+        {
+          "name": "1.1 PTE - Detalle institucional (saca IdUE)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "User-Agent",
+                "value": "Mozilla/5.0 (ObrasCerca scraper; hackathon hack@latam)"
+              },
+              {
+                "key": "Accept",
+                "value": "text/html,application/xhtml+xml"
+              }
+            ],
+            "url": {
+              "raw": "{{base_pte}}/reportes_directos/pte_transparencia_pro_inv.aspx?id_entidad={{id_entidad}}&id_tema=26&ver=1",
+              "host": ["{{base_pte}}"],
+              "path": ["reportes_directos", "pte_transparencia_pro_inv.aspx"],
+              "query": [
+                {"key": "id_entidad", "value": "{{id_entidad}}"},
+                {"key": "id_tema", "value": "26"},
+                {"key": "ver", "value": "1"}
+              ]
+            },
+            "description": "GET al detalle de Proyectos de Inversion de la entidad.\n\nScrap del HTML:\n  - IdUE  -> regex `IdUE=(\\d+)` dentro de <object data=...>\n  - nombre + sigla -> <h2>\n  - alcalde, responsable PTE, email, telefono, resolucion\n  - slug gob.pe -> regex `gob\\.pe/institucion/([a-z0-9-]+)`\n  - URLs colecciones gob.pe (liquidaciones / adicionales / supervision)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Presupuesto institucional (SIAF/MEF)",
+      "description": "Datos presupuestales de la Unidad Ejecutora.",
+      "item": [
+        {
+          "name": "2.1 MEF - GetPliegoTotal (PIM + devengado)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json; charset=UTF-8"},
+              {"key": "X-Requested-With", "value": "XMLHttpRequest"},
+              {"key": "Referer", "value": "{{base_mef}}/proyectos_pte/forms/ListaUnidadEjecutora.aspx?IdUE={{IdUE}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"pCodUE\":\"{{IdUE}}\",\"pPeriodo\":\"{{periodo}}\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_mef}}/proyectos_pte/forms/ListaUnidadEjecutora.aspx/GetPliegoTotal",
+              "host": ["{{base_mef}}"],
+              "path": ["proyectos_pte", "forms", "ListaUnidadEjecutora.aspx", "GetPliegoTotal"]
+            },
+            "description": "Devuelve presupuesto institucional de la UE:\n  - nombre oficial SIAF\n  - pim (presupuesto institucional modificado)\n  - devengado acumulado\n  - tipo_unidad (M=municipal)\n\nAvance financiero = devengado / pim."
+          }
+        },
+        {
+          "name": "2.2 MEF - GetUnidades (UEs hijas)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json; charset=UTF-8"},
+              {"key": "X-Requested-With", "value": "XMLHttpRequest"},
+              {"key": "Referer", "value": "{{base_mef}}/proyectos_pte/forms/ListaUnidadEjecutora.aspx?IdUE={{IdUE}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"pPageSize\":30,\"pPageNumber\":1,\"pSortColumn\":\"nro\",\"pSortOrder\":\"asc\",\"pCodUE\":\"{{IdUE}}\",\"pPeriodo\":\"{{periodo}}\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_mef}}/proyectos_pte/forms/ListaUnidadEjecutora.aspx/GetUnidades",
+              "host": ["{{base_mef}}"],
+              "path": ["proyectos_pte", "forms", "ListaUnidadEjecutora.aspx", "GetUnidades"]
+            },
+            "description": "Devuelve lista de UEs hijas del pliego (ej. Administracion Central, SAT, ProInversion).\nSan Isidro = 1 sola UE. Munis grandes pueden tener 3-5."
+          }
+        },
+        {
+          "name": "2.3 MEF - GetEjecucion (lista de CUIs)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json; charset=UTF-8"},
+              {"key": "X-Requested-With", "value": "XMLHttpRequest"},
+              {"key": "Referer", "value": "{{base_mef}}/proyectos_pte/forms/UnidadEjecutora.aspx?tipo=2&IdUE={{IdUE}}&IdUEBase={{IdUE}}&periodoBase={{periodo}}"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"pPageSize\":30,\"pPageNumber\":1,\"pSortColumn\":\"codDGPP\",\"pSortOrder\":\"asc\",\"pPeriodo\":\"{{periodo}}\",\"pCodEjecutora\":\"{{IdUE}}\",\"pCodDGPP\":\"\",\"pCodSNIP\":\"\",\"pNomProyecto\":\"\"}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_mef}}/proyectos_pte/forms/UnidadEjecutora.aspx/GetEjecucion",
+              "host": ["{{base_mef}}"],
+              "path": ["proyectos_pte", "forms", "UnidadEjecutora.aspx", "GetEjecucion"]
+            },
+            "description": "Lista paginada de CUIs (proyectos de inversion) de la UE.\nCell layout: [CUI, CUI_dup, nombre, costo_actualizado, pim, devengado, ..., monto_viable].\n\nPaginar incrementando pPageNumber hasta que rows venga vacio.\nEste es el endpoint que ya usa el backend en app/clients/mef.py."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Por obra (CUI)",
+      "description": "Datos por proyecto de inversion individual (Invierte.pe + ejecucion + contrataciones).",
+      "item": [
+        {
+          "name": "3.1 Invierte.pe - traeDetInvSSI (datos generales)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded; charset=UTF-8"},
+              {"key": "X-Requested-With", "value": "XMLHttpRequest"},
+              {"key": "Referer", "value": "{{base_mef}}/ssi/Ssi/Index?tipo=2&codigo={{CUI}}"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "id", "value": "{{CUI}}", "type": "text"},
+                {"key": "tipo", "value": "SIAF", "type": "text"}
+              ]
+            },
+            "url": {
+              "raw": "{{base_mef}}/invierteWS/Ssi/traeDetInvSSI",
+              "host": ["{{base_mef}}"],
+              "path": ["invierteWS", "Ssi", "traeDetInvSSI"]
+            },
+            "description": "Datos de Invierte.pe / Banco de Inversiones:\n  - NOMBRE_INVERSION (oficial largo)\n  - SECTOR / FUNCION (taxonomia para filtros del mapa)\n  - MTO_VIABLE vs COSTO_ACTUALIZADO -> senal de sobrecosto\n  - DEV_ACUMULADO (historico)\n  - FEC_VIABLE / FEC_INI_EJEC / FEC_FIN_EJEC (linea de tiempo)\n  - DES_UNIDAD_UEI / DES_UNIDAD_UF (formulador / ejecutor)"
+          }
+        },
+        {
+          "name": "3.2 MEF - traeDevengSSI (devengado mensual)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded; charset=UTF-8"},
+              {"key": "X-Requested-With", "value": "XMLHttpRequest"},
+              {"key": "Referer", "value": "{{base_mef}}/ssi/Ssi/Index?tipo=2&codigo={{CUI}}"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "id", "value": "{{CUI}}", "type": "text"},
+                {"key": "tipo", "value": "FINAN", "type": "text"}
+              ]
+            },
+            "url": {
+              "raw": "{{base_mef}}/invierteWS/Dashboard/traeDevengSSI",
+              "host": ["{{base_mef}}"],
+              "path": ["invierteWS", "Dashboard", "traeDevengSSI"]
+            },
+            "description": "Devengado mes a mes. Util para grafico de avance financiero a lo largo del anio."
+          }
+        },
+        {
+          "name": "3.3 MEF - traeDevEspecifica (especificas de gasto)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded; charset=UTF-8"},
+              {"key": "X-Requested-With", "value": "XMLHttpRequest"},
+              {"key": "Referer", "value": "{{base_mef}}/ssi/Ssi/Index?tipo=2&codigo={{CUI}}"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "id", "value": "{{CUI}}", "type": "text"},
+                {"key": "tipo", "value": "ESPECIF", "type": "text"}
+              ]
+            },
+            "url": {
+              "raw": "{{base_mef}}/invierteWS/Dashboard/traeDevEspecifica",
+              "host": ["{{base_mef}}"],
+              "path": ["invierteWS", "Dashboard", "traeDevEspecifica"]
+            },
+            "description": "Desglose del gasto por especifica presupuestal (consultoria, obras, equipamiento, etc.)."
+          }
+        },
+        {
+          "name": "3.4 SEACE - traeContratoSeaceDWH (contrataciones)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded; charset=UTF-8"},
+              {"key": "X-Requested-With", "value": "XMLHttpRequest"},
+              {"key": "Referer", "value": "{{base_mef}}/ssi/Ssi/Index?tipo=2&codigo={{CUI}}"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "id", "value": "{{CUI}}", "type": "text"},
+                {"key": "codsnip", "value": "{{CUI}}", "type": "text"},
+                {"key": "vers", "value": "v2", "type": "text"}
+              ]
+            },
+            "url": {
+              "raw": "{{base_mef}}/invierteWS/Ssi/traeContratoSeaceDWH",
+              "host": ["{{base_mef}}"],
+              "path": ["invierteWS", "Ssi", "traeContratoSeaceDWH"]
+            },
+            "description": "Contratos asociados al CUI vistos por SSI desde SEACE:\n  - proceso de seleccion + nomenclatura\n  - fecha convocatoria + objeto contractual\n  - contratista + numero de contrato + fecha suscripcion\n  - valor referencial vs monto contratado\n  - URL del PDF del contrato\n\nNo trae numero de postores -> validar baja competencia en seace.gob.pe directamente."
+          }
+        },
+        {
+          "name": "3.5 Infobras - verInfObras2 (NOBR_ID + estado fisico)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Accept", "value": "application/json, text/javascript, */*; q=0.01"},
+              {"key": "X-Requested-With", "value": "XMLHttpRequest"},
+              {"key": "Referer", "value": "{{base_mef}}/ssi/Ssi/Index?tipo=2&codigo={{CUI}}"}
+            ],
+            "url": {
+              "raw": "{{base_mef}}/ssi/Ssi/verInfObras2/{{CUI}}",
+              "host": ["{{base_mef}}"],
+              "path": ["ssi", "Ssi", "verInfObras2", "{{CUI}}"]
+            },
+            "description": "Datos Infobras vinculados al CUI:\n  - NOBR_ID (llave Contraloria para informes / WFS)\n  - COBR_DESCRI (descripcion de obra)\n  - COBR_DIRECCION (direccion fisica)\n  - COPA_DESCRI (modalidad: Contrata / Administracion Directa)\n  - RUBRO (categoria temática)\n  - obj_SNO_OBRA_SNO_COORDENADAS (NCOR_LATITU / NCOR_LONGIT)\n  - obj_SNO_OBRA_UBIGEO (LATITUD / LONGITUD fallback)\n\nRegla: si hay multiples NOBR_ID, elegir el de mayor completitud (direccion + avance + ubigeo), NO el primero."
+          }
+        },
+        {
+          "name": "3.6 MEF - traeListaParalizaPublico (paralizaciones)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded; charset=UTF-8"},
+              {"key": "X-Requested-With", "value": "XMLHttpRequest"},
+              {"key": "Referer", "value": "{{base_mef}}/ssi/Ssi/Index?tipo=2&codigo={{CUI}}"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "id", "value": "{{CUI}}", "type": "text"}
+              ]
+            },
+            "url": {
+              "raw": "{{base_mef}}/invierte/paraliza/traeListaParalizaPublico",
+              "host": ["{{base_mef}}"],
+              "path": ["invierte", "paraliza", "traeListaParalizaPublico"]
+            },
+            "description": "Registros de paralizacion declarados.\nIMPORTANTE: si devuelve vacio, decir 'sin registro observado', NO 'no existe problema'."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Contraloria (por NOBR_ID)",
+      "description": "Datos directos de Infobras / Contraloria. Bajo demanda cuando el usuario clickea una obra.",
+      "item": [
+        {
+          "name": "4.1 Infobras WFS - Coordenadas por NOBR_ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Accept", "value": "application/json"}
+            ],
+            "url": {
+              "raw": "{{base_infobras}}/InfobrasWeb/Mapa/MapaEstadistico/WmsProxy?path=ows&service=WFS&request=GetFeature&typeName=inf_geoobrdef_4326_pt&outputFormat=application/json&CQL_FILTER=cdp1_codigo='{{NOBR_ID}}'",
+              "host": ["{{base_infobras}}"],
+              "path": ["InfobrasWeb", "Mapa", "MapaEstadistico", "WmsProxy"],
+              "query": [
+                {"key": "path", "value": "ows"},
+                {"key": "service", "value": "WFS"},
+                {"key": "request", "value": "GetFeature"},
+                {"key": "typeName", "value": "inf_geoobrdef_4326_pt"},
+                {"key": "outputFormat", "value": "application/json"},
+                {"key": "CQL_FILTER", "value": "cdp1_codigo='{{NOBR_ID}}'"}
+              ]
+            },
+            "description": "WFS / GeoServer de Infobras. Devuelve coordenadas en EPSG:4326.\nIMPORTANTE: totalFeatures=0 NO significa que la obra no exista, solo que no hay feature en esa capa.\nFallback: usar coordenadas SSI (paso 3.5), luego ubigeo / centroide del distrito."
+          }
+        },
+        {
+          "name": "4.2 Contraloria - Pagina InformeControl (HTML con var JS lInformeControl)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Accept", "value": "text/html,application/xhtml+xml"}
+            ],
+            "url": {
+              "raw": "{{base_infobras}}/InfobrasWeb/Mapa/InformeControl?obraId={{NOBR_ID}}",
+              "host": ["{{base_infobras}}"],
+              "path": ["InfobrasWeb", "Mapa", "InformeControl"],
+              "query": [
+                {"key": "obraId", "value": "{{NOBR_ID}}"}
+              ]
+            },
+            "description": "Pagina HTML con la variable JS `lInformeControl` que contiene los informes de control.\n\nLa tabla `tbody#bodyIC` NO se llena por XHR JSON.\nLa data viene embebida como JS:\n  lInformeControl = [{ Anio, NroInforme, TituloInforme, TipoServicio, Modalidad, FechaEmision, FechaPublicacion, RutaPublicacion, RutaInforme }]\n\nUsar regex/playwright para extraer. La skill `pdf-informes-control` ya implementa esto."
+          }
+        },
+        {
+          "name": "4.3 SPIC - Descarga PDF informe (Resumen)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Accept", "value": "application/pdf"}
+            ],
+            "url": {
+              "raw": "http://apps8.contraloria.gob.pe/SPIC/srvDownload/ViewPDF?CRES_CODIGO=SUBSTITUIR&TIPOARCHIVO=RE",
+              "host": ["apps8", "contraloria", "gob", "pe"],
+              "path": ["SPIC", "srvDownload", "ViewPDF"],
+              "query": [
+                {"key": "CRES_CODIGO", "value": "SUBSTITUIR", "description": "Sale del campo RutaInforme de lInformeControl (paso 4.2)"},
+                {"key": "TIPOARCHIVO", "value": "RE", "description": "RE = Ficha resumen / publicacion"}
+              ]
+            },
+            "description": "Descarga del PDF de ficha resumen del informe.\nEl CRES_CODIGO se obtiene parseando lInformeControl en el paso 4.2."
+          }
+        },
+        {
+          "name": "4.4 SPIC - Descarga PDF informe (Adjunto completo)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "Accept", "value": "application/pdf"}
+            ],
+            "url": {
+              "raw": "http://apps8.contraloria.gob.pe/SPIC/srvDownload/ViewPDF?CRES_CODIGO=SUBSTITUIR&TIPOARCHIVO=ADJUNTO",
+              "host": ["apps8", "contraloria", "gob", "pe"],
+              "path": ["SPIC", "srvDownload", "ViewPDF"],
+              "query": [
+                {"key": "CRES_CODIGO", "value": "SUBSTITUIR", "description": "Sale del campo RutaInforme de lInformeControl"},
+                {"key": "TIPOARCHIVO", "value": "ADJUNTO", "description": "ADJUNTO = informe completo"}
+              ]
+            },
+            "description": "Descarga del PDF del informe completo de control.\nMuchos vienen escaneados -> usar fallback OCR (la skill `pdf-informes-control` lo hace)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Referencia visual (HTML para inspeccion humana)",
+      "item": [
+        {
+          "name": "5.1 PTE - Ficha de entidad (menu de rubros)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_pte}}/enlaces/pte_transparencia_enlaces.aspx?id_entidad={{id_entidad}}",
+              "host": ["{{base_pte}}"],
+              "path": ["enlaces", "pte_transparencia_enlaces.aspx"],
+              "query": [
+                {"key": "id_entidad", "value": "{{id_entidad}}"}
+              ]
+            },
+            "description": "Pagina humana de la entidad en el portal PTE. Menu de los 10 rubros (datos generales, planeamiento, presupuesto, etc.)."
+          }
+        },
+        {
+          "name": "5.2 SSI - Index visual por CUI",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_mef}}/ssi/Ssi/Index?tipo=2&codigo={{CUI}}",
+              "host": ["{{base_mef}}"],
+              "path": ["ssi", "Ssi", "Index"],
+              "query": [
+                {"key": "tipo", "value": "2"},
+                {"key": "codigo", "value": "{{CUI}}"}
+              ]
+            },
+            "description": "Pagina HTML de SSI por CUI. Solo para verificar visualmente que el CUI existe y que secciones carga.\nNO usar como dato final si hay endpoints JSON disponibles."
+          }
+        },
+        {
+          "name": "5.3 PTE - Catalogo Gobiernos Locales (listado completo)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_pte}}/buscador/pte_transparencia_listado_entidades_poder.aspx?Tipo_Pod=5",
+              "host": ["{{base_pte}}"],
+              "path": ["buscador", "pte_transparencia_listado_entidades_poder.aspx"],
+              "query": [
+                {"key": "Tipo_Pod", "value": "5", "description": "5=Locales, 7=Regionales, 1=Legislativo, 2=Judicial, 4=Autonomos, omitir=Ejecutivo"}
+              ]
+            },
+            "description": "HTML server-rendered con TODAS las ~1846 municipalidades del Peru.\nCada <a href=\"...id_entidad=NNN\"> es una entidad. Este es el paso 1 del scraper Python."
+          }
+        }
+      ]
+    }
+  ]
+}

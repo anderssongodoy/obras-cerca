@@ -1,0 +1,92 @@
+/* El host Angular colapsa por defecto — forzamos que ocupe todo */
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+}
+
+.mapa-container {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+
+.filtros-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #0f172a;
+  border-bottom: 1px solid #1e293b;
+  z-index: 500;
+  flex-shrink: 0;
+}
+
+.search-input {
+  flex: 2;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: white;
+  padding: 6px 12px;
+  font-size: .85rem;
+  outline: none;
+  &:focus { border-color: #3b82f6; }
+  &::placeholder { color: #475569; }
+}
+
+select {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: white;
+  padding: 6px 10px;
+  font-size: .8rem;
+  cursor: pointer;
+  outline: none;
+  &:focus { border-color: #3b82f6; }
+}
+
+.filtro-total {
+  font-size: .78rem;
+  color: #64748b;
+  white-space: nowrap;
+  min-width: 70px;
+  text-align: right;
+}
+
+.leyenda {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 5px 14px;
+  background: rgba(15, 23, 42, 0.9);
+  font-size: .7rem;
+  color: #94a3b8;
+  z-index: 500;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  span { display: flex; align-items: center; gap: 5px; }
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.size-hint { color: #475569; font-style: italic; }
+
+.leaflet-map {
+  flex: 1;
+  height: 100%;
+  min-height: 400px;
+  z-index: 0;
+}

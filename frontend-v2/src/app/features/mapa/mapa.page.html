@@ -1,0 +1,41 @@
+<app-leaflet-map />
+
+<app-topbar
+  [searchValue]="busqueda()"
+  [hasActiveFilter]="hasActiveFilter()"
+  [filterCount]="visibleCount()"
+  [filtersOpen]="drawerOpen()"
+  (searchChanged)="onSearchChanged($event)"
+  (filtrosOpened)="onFiltrosOpened()"
+  (locationCentered)="onLocationCentered()"
+/>
+
+<app-topbar-strip [total]="total()" />
+
+<app-result-counter
+  [visible]="hasActiveFilter()"
+  [shown]="visibleCount()"
+  [total]="total()"
+/>
+
+<app-obra-panel
+  [obra]="selectedObra()"
+  (closed)="onPanelClosed()"
+/>
+
+<app-filtros-drawer
+  [open]="drawerOpen()"
+  [activeChip]="activeChip()"
+  [counts]="chipCounts()"
+  [totalVisible]="visibleCount()"
+  [total]="total()"
+  (closed)="onDrawerClosed()"
+  (chipChanged)="onChipChanged($event)"
+  (reset)="onFiltrosReset()"
+/>
+
+<app-float-controls
+  (zoomedIn)="onZoomIn()"
+  (zoomedOut)="onZoomOut()"
+  (layerToggled)="onLayerToggled()"
+/>

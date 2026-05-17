@@ -1,0 +1,16 @@
+<button
+  type="button"
+  class="chip"
+  [attr.aria-pressed]="ariaPressed()"
+  (click)="onClick()"
+>
+  <span class="chip-left">
+    @if (dotColor()) {
+      <span class="dot" [style.background]="dotColor()"></span>
+    }
+    <span>{{ label() }}</span>
+  </span>
+  @if (count() !== null) {
+    <span class="chip-count">{{ count() }}</span>
+  }
+</button>

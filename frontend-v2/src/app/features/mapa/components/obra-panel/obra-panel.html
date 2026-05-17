@@ -1,0 +1,33 @@
+<aside
+  class="panel"
+  [class.hidden]="!obra()"
+  [attr.aria-hidden]="obra() ? null : 'true'"
+  [attr.inert]="obra() ? null : ''"
+  aria-label="Detalle de obra seleccionada"
+>
+  @if (obra(); as o) {
+    <div class="panel-band" [attr.data-estado]="o.estado"></div>
+
+    <div class="panel-head">
+      <app-estado-pill [estado]="o.estado" />
+      <app-icon-button icon="close" ariaLabel="Cerrar detalle" (clicked)="onClose()" />
+    </div>
+
+    <h2 class="panel-titulo">{{ o.titulo }}</h2>
+
+    <div class="panel-monto-row">
+      <span class="panel-monto-val">{{ o.montoLabel }}</span>
+      <span class="panel-monto-label">Inversión</span>
+    </div>
+
+    <app-obra-meta [entidad]="o.entidad" [distrito]="o.distrito" />
+
+    @if (o.conSenal) {
+      <app-obra-senal-alert [estado]="o.estado" />
+    }
+
+    <app-obra-context [estado]="o.estado" />
+
+    <app-obra-actions [obra]="o" />
+  }
+</aside>

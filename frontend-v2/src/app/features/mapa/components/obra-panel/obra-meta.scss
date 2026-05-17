@@ -1,0 +1,29 @@
+:host { display: block; }
+
+.meta {
+  padding: 0 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.meta-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.4;
+}
+
+.meta-row app-icon {
+  font-size: 16px;
+  color: var(--ink-3);
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.meta-row strong {
+  color: var(--ink);
+  font-weight: 600;
+}

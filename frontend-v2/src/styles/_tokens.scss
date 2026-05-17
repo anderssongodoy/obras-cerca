@@ -1,0 +1,44 @@
+// Design tokens — ObrasCerca civic warm
+// Paleta migrada literal del demo/index.html (líneas 26-53).
+// El bloque @theme para Tailwind v4 vive en src/tailwind.css (necesario para
+// que el plugin @tailwindcss/postcss lea los tokens del mismo archivo donde
+// está el @import 'tailwindcss').
+
+:root {
+  // Tipografía civic — un punto más cálida que la paleta SaaS estándar
+  --ink:            oklch(24% 0.035 250);
+  --ink-2:          oklch(45% 0.024 250);
+  --ink-3:          oklch(67% 0.018 250);
+  --surface:        oklch(98% 0.012 84);
+  --surface-raised: oklch(99% 0.008 84);
+  --mute:           oklch(95% 0.018 84);
+  --soft:           oklch(92% 0.024 84);
+  --border:         oklch(88% 0.020 84);
+  --border-strong:  oklch(78% 0.028 84);
+
+  // Estados — desaturados un punto, lectura cívica más sobria
+  --state-ejecucion:        #D97706;
+  --state-ejecucion-soft:   #FEF1DD;
+  --state-licitacion:       #B91C1C;
+  --state-licitacion-soft:  #FCE7E7;
+  --state-verificada:       #15803D;
+  --state-verificada-soft:  #E1F2E6;
+  --state-informativo:      #0369A1;
+  --state-informativo-soft: #DBEBF7;
+  --state-senal:            #A16207;
+  --state-senal-soft:       #FAEFCF;
+
+  // Sombras
+  --shadow-card:   0 3px 10px rgba(26, 35, 50, 0.055);
+  --shadow-elev:   0 10px 26px rgba(26, 35, 50, 0.11);
+  --shadow-marker: 0 2px 6px rgba(0, 0, 0, 0.28);
+  --shadow-btn:    0 2px 8px rgba(15, 23, 42, 0.10);
+
+  // Tipografías
+  --font-sans:    'Inter', system-ui, sans-serif;
+  --font-display: 'Roboto Condensed', 'Inter', sans-serif;
+
+  // Easings y motion
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring:    cubic-bezier(0.2, 0.7, 0.3, 1);
+}

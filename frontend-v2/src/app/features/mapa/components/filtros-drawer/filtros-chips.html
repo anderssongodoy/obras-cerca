@@ -1,0 +1,11 @@
+<div class="chip-list">
+  @for (item of chips; track item.chip) {
+    <app-chip
+      [pressed]="activeChip() === item.chip"
+      [label]="item.label"
+      [count]="counts()[item.chip]"
+      [dotColor]="item.dot"
+      (toggled)="onChipClick(item.chip)"
+    />
+  }
+</div>

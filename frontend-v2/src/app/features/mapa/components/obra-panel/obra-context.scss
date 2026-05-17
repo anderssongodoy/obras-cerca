@@ -1,0 +1,16 @@
+:host { display: block; margin: 0 16px 14px; }
+
+.context {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--mute);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.context strong {
+  color: var(--ink);
+  font-weight: 700;
+}

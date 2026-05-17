@@ -1,0 +1,14 @@
+:host {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 35, 50, 0.22);
+  z-index: 1100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+
+:host(.open) {
+  opacity: 1;
+  pointer-events: auto;
+}

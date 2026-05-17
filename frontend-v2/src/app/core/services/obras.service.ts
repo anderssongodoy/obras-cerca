@@ -1,0 +1,72 @@
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { httpResource } from '@angular/common/http';
+
+import { API_BASE_URL } from '../config/api.config';
+import { UBIGEO_CALLAO_DEFAULT } from '../config/map.config';
+import type { Obra, ObraApi, ObrasListResponse } from '../models/obra.model';
+import {
+  derivarEstado,
+  derivarFuente,
+  formatoMonto,
+} from '../../features/mapa/utils/estado-catalog';
+import { SenalesService } from './senales.service';
+
+@Injectable({ providedIn: 'root' })
+export class ObrasService {
+  private readonly apiBase = inject(API_BASE_URL);
+  private readonly senales = inject(SenalesService);
+
+  // Filtros server-side — se exponen como signals editables para que la UI escriba aquí.
+  readonly ubigeo = signal<string | null>(UBIGEO_CALLAO_DEFAULT);
+  readonly busqueda = signal<string>('');
+  readonly limit = signal<number>(200);
+
+  readonly resource = httpResource<ObrasListResponse>(() => ({
+    url: `${this.apiBase}/api/obras`,
+    params: {
+      ...(this.ubigeo() ? { ubigeo: this.ubigeo() as string } : {}),
+      ...(this.busqueda().trim() ? { q: this.busqueda().trim() } : {}),
+      limit: this.limit(),
+    },
+  }));
+
+  // Lista normalizada al shape del demo — cruza ObraApi[] con el Set de señales.
+  readonly obras = computed<Obra[]>(() => {
+    const resp = this.resource.value();
+    if (!resp) return [];
+    const senales = this.senales.obrasConSenal();
+    return resp.items.filter(tieneCoords).map((api) => mapApiToObra(api, senales.has(api.id)));
+  });
+
+  readonly total = computed(() => this.resource.value()?.total ?? 0);
+  readonly isLoading = this.resource.isLoading;
+  readonly error = this.resource.error;
+
+  reload(): void {
+    this.resource.reload();
+  }
+}
+
+function tieneCoords(o: ObraApi): boolean {
+  return o.latitud != null && o.longitud != null;
+}
+
+function mapApiToObra(api: ObraApi, conSenal: boolean): Obra {
+  const monto = formatoMonto(api);
+  return {
+    id: api.id,
+    titulo: api.nombre_obra ?? api.nombre_inversion ?? `Obra #${api.id}`,
+    estado: derivarEstado(api, conSenal),
+    montoNumerico: monto.numerico,
+    montoLabel: monto.label,
+    entidad: api.entidad_nombre ?? 'Sin entidad',
+    distrito: api.distrito_nombre ?? 'Sin distrito',
+    coords: [api.latitud as number, api.longitud as number],
+    conSenal,
+    fuente: derivarFuente(api, false),
+    urlInfobras: api.url_infobras_ficha,
+    urlMef: api.url_mef_ssi,
+    nobrId: api.nobr_id,
+    cui: api.cui,
+  };
+}

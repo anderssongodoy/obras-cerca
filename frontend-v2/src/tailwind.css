@@ -1,0 +1,38 @@
+/* Tailwind v4 entry — procesado por @tailwindcss/postcss.
+   El @theme define los tokens del design system civic para que utilities
+   como bg-ink, text-state-ejecucion, shadow-elev, font-sans queden tipadas. */
+@import 'tailwindcss';
+
+@theme {
+  --color-ink: oklch(24% 0.035 250);
+  --color-ink-2: oklch(45% 0.024 250);
+  --color-ink-3: oklch(67% 0.018 250);
+  --color-surface: oklch(98% 0.012 84);
+  --color-surface-raised: oklch(99% 0.008 84);
+  --color-mute: oklch(95% 0.018 84);
+  --color-soft: oklch(92% 0.024 84);
+  --color-border: oklch(88% 0.020 84);
+  --color-border-strong: oklch(78% 0.028 84);
+
+  --color-state-ejecucion: #d97706;
+  --color-state-ejecucion-soft: #fef1dd;
+  --color-state-licitacion: #b91c1c;
+  --color-state-licitacion-soft: #fce7e7;
+  --color-state-verificada: #15803d;
+  --color-state-verificada-soft: #e1f2e6;
+  --color-state-informativo: #0369a1;
+  --color-state-informativo-soft: #dbebf7;
+  --color-state-senal: #a16207;
+  --color-state-senal-soft: #faefcf;
+
+  --shadow-card: 0 3px 10px rgba(26, 35, 50, 0.055);
+  --shadow-elev: 0 10px 26px rgba(26, 35, 50, 0.11);
+  --shadow-marker: 0 2px 6px rgba(0, 0, 0, 0.28);
+  --shadow-btn: 0 2px 8px rgba(15, 23, 42, 0.10);
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'Roboto Condensed', 'Inter', sans-serif;
+
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring: cubic-bezier(0.2, 0.7, 0.3, 1);
+}

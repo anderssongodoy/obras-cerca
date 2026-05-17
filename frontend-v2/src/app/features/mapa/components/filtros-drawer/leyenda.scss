@@ -1,0 +1,47 @@
+:host { display: block; }
+
+.leyenda {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.leyenda-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.leyenda-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--surface-raised);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.leyenda-dot app-icon {
+  font-size: 12px;
+  color: var(--surface);
+}
+
+.leyenda-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--ink-2);
+  padding-top: 4px;
+}
+
+.leyenda-dot--ring {
+  background: color-mix(in oklch, var(--state-ejecucion) 18%, transparent);
+  border: 2px solid color-mix(in oklch, var(--state-ejecucion) 55%, transparent);
+  box-shadow: none;
+}

@@ -1,0 +1,7 @@
+// Design system — orden importa: tokens → reset → typo → animaciones → overrides Leaflet.
+// Tailwind v4 vive en src/tailwind.css (listado antes en angular.json styles[]).
+@use 'styles/tokens';
+@use 'styles/reset';
+@use 'styles/typography';
+@use 'styles/animations';
+@use 'styles/leaflet-overrides';

@@ -1,0 +1,44 @@
+<app-overlay-backdrop [open]="open()" (dismissed)="closed.emit()" />
+
+<aside
+  class="drawer"
+  [class.open]="open()"
+  role="dialog"
+  aria-label="Filtros y leyenda"
+  [attr.aria-modal]="open() ? 'true' : null"
+  [attr.aria-hidden]="open() ? null : 'true'"
+  [attr.inert]="open() ? null : ''"
+  [cdkTrapFocus]="open()"
+  [cdkTrapFocusAutoCapture]="open()"
+>
+  <header class="drawer-head">
+    <h2 class="drawer-title">Filtros</h2>
+    <app-icon-button icon="close" ariaLabel="Cerrar filtros" (clicked)="closed.emit()" />
+  </header>
+
+  <div class="drawer-summary">
+    <strong>{{ totalVisible() }}</strong>
+    <span>de {{ total() }} obras visibles</span>
+  </div>
+
+  <div class="drawer-body">
+    <section class="drawer-section">
+      <h3 class="section-title">Estado</h3>
+      <app-filtros-chips
+        [activeChip]="activeChip()"
+        [counts]="counts()"
+        (chipChanged)="chipChanged.emit($event)"
+      />
+    </section>
+
+    <section class="drawer-section">
+      <h3 class="section-title">Leyenda</h3>
+      <app-leyenda />
+    </section>
+  </div>
+
+  <footer class="drawer-actions">
+    <button type="button" class="btn-drawer" (click)="reset.emit()">Limpiar</button>
+    <button type="button" class="btn-drawer primary" (click)="closed.emit()">Aplicar</button>
+  </footer>
+</aside>

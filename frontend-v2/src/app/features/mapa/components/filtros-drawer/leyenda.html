@@ -1,0 +1,15 @@
+<div class="leyenda">
+  @for (item of items; track item.label) {
+    <div class="leyenda-item">
+      <span class="leyenda-dot" [style.background]="item.color">
+        <app-icon [name]="item.icon" />
+      </span>
+      <span>{{ item.label }}</span>
+    </div>
+  }
+
+  <div class="leyenda-note">
+    <span class="leyenda-dot leyenda-dot--ring" aria-hidden="true"></span>
+    <span>Círculo: zona de impacto según monto</span>
+  </div>
+</div>

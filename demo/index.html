@@ -1,0 +1,1928 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ObrasCerca — Mapa Ciudadano del Callao</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- MarkerCluster -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* Tipografía civic — un punto más cálida que la paleta SaaS estándar */
+      --ink:           oklch(24% 0.035 250);
+      --ink-2:         oklch(45% 0.024 250);
+      --ink-3:         oklch(67% 0.018 250);
+      --surface:       oklch(98% 0.012 84);
+      --surface-raised:oklch(99% 0.008 84);
+      --bg-mute:       oklch(95% 0.018 84);   /* warm parchment, no slate */
+      --bg-soft:       oklch(92% 0.024 84);
+      --border:        oklch(88% 0.020 84);
+      --border-strong: oklch(78% 0.028 84);
+      /* Estados — desaturados un punto, lectura cívica más sobria */
+      --orange:       #D97706;    /* amber-600 */
+      --orange-soft:  #FEF1DD;
+      --red:          #B91C1C;    /* red-700 */
+      --red-soft:     #FCE7E7;
+      --green:        #15803D;    /* green-700 */
+      --green-soft:   #E1F2E6;
+      --blue:         #0369A1;    /* sky-700 */
+      --blue-soft:    #DBEBF7;
+      --yellow:       #A16207;    /* yellow-700, mostaza */
+      --yellow-soft:  #FAEFCF;
+      /* Sombras */
+      --shadow-card:   0 3px 10px rgba(26,35,50,0.055);
+      --shadow-elev:   0 10px 26px rgba(26,35,50,0.11);
+      --shadow-marker: 0 2px 6px rgba(0,0,0,0.28);
+      --shadow-btn:    0 2px 8px rgba(15,23,42,0.10);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    :where(button, a, input, .chip, .float-btn):focus-visible {
+      outline: 3px solid color-mix(in oklch, var(--blue) 68%, var(--surface));
+      outline-offset: 3px;
+      box-shadow: 0 0 0 5px color-mix(in oklch, var(--blue-soft) 72%, transparent);
+    }
+
+    /* ───── MAP ───── */
+    #map {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+
+    /* Hide default Leaflet controls — we use our own */
+    .leaflet-control-zoom { display: none !important; }
+    .leaflet-control-attribution {
+      font-size: 10px;
+      background: rgba(255,255,255,0.75) !important;
+    }
+
+    /* ───── TOP BAR ───── */
+    #topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      background: var(--surface-raised);
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 1px 0 rgba(26,35,50,0.04);
+    }
+
+    #topbar-inner {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      height: 56px;
+      padding: 0 18px;
+    }
+
+    #topbar-strip {
+      height: 26px;
+      padding: 0 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11.5px;
+      color: var(--ink-2);
+      background: var(--bg-mute);
+      border-top: 1px solid var(--border);
+      letter-spacing: 0.005em;
+    }
+
+    #topbar-strip .strip-sep {
+      width: 3px; height: 3px;
+      background: var(--ink-3);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    #topbar-strip .strip-bold {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    #topbar-strip .material-symbols-outlined {
+      font-size: 14px;
+      color: var(--ink-2);
+    }
+
+    #logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      text-decoration: none;
+    }
+
+    #logo-icon {
+      width: 44px; height: 44px;
+      background: var(--ink);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    #logo-icon .material-symbols-outlined {
+      color: var(--surface);
+      font-size: 18px;
+    }
+
+    #logo-text {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+    }
+
+    #search-wrap {
+      flex: 1;
+      max-width: 480px;
+      position: relative;
+    }
+
+    #search-wrap .material-symbols-outlined {
+      position: absolute;
+      left: 14px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 18px;
+      color: var(--ink-2);
+      pointer-events: none;
+    }
+
+    #search-input {
+      width: 100%;
+      min-height: 44px;
+      padding: 0 16px 0 42px;
+      border: 1.5px solid var(--border);
+      border-radius: 999px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      color: var(--ink);
+      background: var(--surface);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    #search-input:focus { border-color: var(--ink); }
+    #search-input::placeholder { color: #94A3B8; }
+
+    #btn-location {
+      width: 44px; height: 44px;
+      border-radius: 999px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+
+    #btn-location:hover { background: var(--bg-mute); }
+
+    #btn-location .material-symbols-outlined {
+      font-size: 18px;
+      color: var(--ink);
+    }
+
+    /* ───── BOTÓN FILTROS (abre drawer) ───── */
+    #btn-filtros {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 44px;
+      padding: 0 14px 0 12px;
+      border-radius: 999px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      flex-shrink: 0;
+      letter-spacing: -0.005em;
+    }
+
+    #btn-filtros:hover { background: var(--bg-mute); }
+
+    #btn-filtros.has-active {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: var(--surface);
+    }
+
+    #btn-filtros .material-symbols-outlined {
+      font-size: 18px;
+    }
+
+    #btn-filtros .filtros-count {
+      font-variant-numeric: tabular-nums;
+      opacity: 0.85;
+    }
+
+    /* ───── CHIPS (genéricas, usadas dentro del drawer) ───── */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ink);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s;
+      user-select: none;
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    .chip:hover { background: var(--bg-mute); }
+
+    .chip[aria-pressed="true"] {
+      background: var(--ink);
+      color: var(--surface);
+      border-color: var(--ink);
+    }
+
+    .chip[aria-pressed="true"] .chip-count { color: color-mix(in oklch, var(--surface) 82%, transparent); }
+    .chip[aria-pressed="true"] .dot { outline: 2px solid color-mix(in oklch, var(--surface) 65%, transparent); }
+
+    .chip-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chip .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .chip-count {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-3);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ───── PANEL OBRA — story flow ───── */
+    #panel-obra {
+      position: fixed;
+      top: 100px;
+      left: 16px;
+      width: 340px;
+      background: var(--surface);
+      border-radius: 14px;
+      box-shadow: var(--shadow-elev);
+      z-index: 900;
+      overflow: hidden;
+      transition: transform 0.28s cubic-bezier(.2,.7,.3,1), opacity 0.22s ease;
+      border: 1px solid var(--border);
+    }
+
+    #panel-obra.hidden {
+      transform: translateX(-24px);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Banda de color superior según estado — ancla visual primaria */
+    .panel-band {
+      height: 4px;
+      width: 100%;
+      background: var(--orange);
+      transition: background 0.2s ease;
+    }
+    .panel-band.ejecucion  { background: var(--orange); }
+    .panel-band.licitacion { background: var(--red); }
+    .panel-band.verificada { background: var(--green); }
+    .panel-band.informativo{ background: var(--blue); }
+    .panel-band.senal      { background: var(--yellow); }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 0;
+    }
+
+    .estado-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .estado-pill .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+    }
+
+    .estado-pill.ejecucion  { background: var(--orange-soft); color: var(--orange); }
+    .estado-pill.licitacion { background: var(--red-soft);    color: var(--red); }
+    .estado-pill.verificada { background: var(--green-soft);  color: var(--green); }
+    .estado-pill.informativo{ background: var(--blue-soft);   color: var(--blue); }
+    .estado-pill.senal      { background: var(--yellow-soft); color: var(--yellow); }
+
+    .btn-close {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      border: none;
+      background: var(--bg-mute);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--ink-2);
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .btn-close:hover { background: var(--bg-soft); color: var(--ink); }
+    .btn-close .material-symbols-outlined { font-size: 18px; }
+
+    .panel-titulo {
+      padding: 10px 16px 6px;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.32;
+      letter-spacing: -0.012em;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Monto destacado — segunda capa de jerarquía */
+    .panel-monto-row {
+      padding: 4px 16px 12px;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .panel-monto-val {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.025em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .panel-monto-label {
+      font-size: 11px;
+      color: var(--ink-2);
+      letter-spacing: 0.02em;
+    }
+
+    /* Bloques de meta: entidad + ubicación */
+    .panel-meta {
+      padding: 0 16px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .panel-meta-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font-size: 12.5px;
+      color: var(--ink-2);
+      line-height: 1.4;
+    }
+    .panel-meta-row .material-symbols-outlined {
+      font-size: 16px;
+      color: var(--ink-3);
+      margin-top: 1px;
+      flex-shrink: 0;
+    }
+    .panel-meta-row strong {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    /* Señal ciudadana — solo si aplica, claramente alerta */
+    .panel-senal {
+      margin: 0 16px 14px;
+      background: var(--yellow-soft);
+      border: 1px solid rgba(161,98,7,0.18);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      gap: 9px;
+      align-items: flex-start;
+    }
+
+    .panel-senal .material-symbols-outlined {
+      font-size: 18px;
+      color: var(--yellow);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .panel-senal-text {
+      font-size: 12px;
+      color: #6B4A06;
+      line-height: 1.45;
+    }
+    .panel-senal-text strong { color: var(--yellow); font-weight: 700; }
+
+    .panel-context {
+      margin: 0 16px 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-mute);
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--ink-2);
+    }
+    .panel-context strong { color: var(--ink); font-weight: 700; }
+
+    /* Acción primaria + microcopy fuente */
+    .panel-actions {
+      padding: 0 16px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .btn-ver-ficha {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      min-height: 44px;
+      background: var(--ink);
+      color: var(--surface);
+      border: none;
+      border-radius: 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+      letter-spacing: -0.005em;
+    }
+
+    .btn-ver-ficha:hover { background: #2A3344; }
+    .btn-ver-ficha .material-symbols-outlined { font-size: 16px; }
+
+    .panel-fuente {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--ink-2);
+      letter-spacing: 0.01em;
+    }
+    .panel-fuente .material-symbols-outlined {
+      font-size: 13px;
+      color: var(--ink-3);
+    }
+
+    /* Leyenda integrada al drawer — sin chip flotante */
+
+    .leyenda-titulo {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--ink-3);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .leyenda-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--ink);
+    }
+
+    .leyenda-dot {
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      border: 2px solid var(--surface-raised);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .leyenda-dot .material-symbols-outlined { font-size: 12px; color: var(--surface); }
+
+    /* ───── CONTROLES FLOTANTES ───── */
+    #float-controls {
+      position: fixed;
+      bottom: 20px;
+      right: 16px;
+      z-index: 900;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .float-btn {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: var(--shadow-btn);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Inter', sans-serif;
+      font-size: 20px;
+      font-weight: 400;
+      color: var(--ink);
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    .float-btn:hover { background: var(--bg-mute); transform: scale(1.04); }
+    .float-btn:active { transform: scale(0.96); }
+    .float-btn .material-symbols-outlined { font-size: 20px; }
+
+    /* ───── CUSTOM MARKER ───── */
+    .marker-pin {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      border: 3px solid var(--surface-raised);
+      box-shadow: var(--shadow-marker);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: transform 0.18s cubic-bezier(.2,.7,.3,1.4), box-shadow 0.18s ease;
+      position: relative;
+    }
+
+    .marker-pin:hover { transform: scale(1.12); box-shadow: 0 4px 12px rgba(0,0,0,0.35); }
+
+    /* Marcador seleccionado: agrandado + halo cívico visible */
+    .marker-pin.is-selected {
+      transform: scale(1.22);
+      box-shadow:
+        0 0 0 6px color-mix(in oklch, var(--surface) 94%, transparent),
+        0 0 0 9px currentColor,
+        0 4px 14px rgba(0,0,0,0.35);
+    }
+
+    .marker-pin.is-selected::before {
+      content: '';
+      position: absolute;
+      inset: -10px;
+      border-radius: 50%;
+      border: 2px solid currentColor;
+      opacity: 0;
+      animation: marker-pulse 1.6s ease-out infinite;
+    }
+
+    @keyframes marker-pulse {
+      0%   { opacity: 0.55; transform: scale(0.9); }
+      80%  { opacity: 0;    transform: scale(1.5); }
+      100% { opacity: 0;    transform: scale(1.5); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
+
+      .marker-pin.is-selected::before { animation: none; opacity: 0.34; }
+    }
+
+    .marker-pin .material-symbols-outlined {
+      font-size: 20px;
+      color: var(--surface);
+      user-select: none;
+    }
+
+    /* Cluster overrides — neutros warm */
+    .marker-cluster-small,
+    .marker-cluster-medium,
+    .marker-cluster-large {
+      background-clip: padding-box;
+    }
+
+    .marker-cluster-small div,
+    .marker-cluster-medium div,
+    .marker-cluster-large div {
+      background: #2D3748;
+      color: var(--surface);
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      border: 2.5px solid var(--surface-raised);
+      box-shadow: var(--shadow-marker);
+    }
+
+    .marker-cluster-small  { background: rgba(45,55,72,0.20); }
+    .marker-cluster-medium { background: rgba(45,55,72,0.25); }
+    .marker-cluster-large  { background: rgba(45,55,72,0.30); }
+
+    /* ───── DRAWER DE FILTROS ───── */
+    #drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(26,35,50,0.22);
+      z-index: 1100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.22s ease;
+    }
+    #drawer-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #drawer {
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      width: 340px;
+      background: var(--surface);
+      z-index: 1200;
+      transform: translateX(-100%);
+      transition: transform 0.28s cubic-bezier(.2,.7,.3,1);
+      display: flex;
+      flex-direction: column;
+      box-shadow: 8px 0 24px rgba(15,23,42,0.10);
+    }
+    #drawer.open { transform: translateX(0); }
+
+    .drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .drawer-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+
+    .drawer-summary {
+      padding: 12px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-mute);
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--ink-2);
+    }
+    .drawer-summary strong { color: var(--ink); font-weight: 700; }
+    .drawer-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px 24px;
+    }
+
+    .drawer-section {
+      margin-bottom: 20px;
+    }
+    .drawer-section-title {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--ink-3);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .chip-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .drawer-actions {
+      display: flex;
+      gap: 8px;
+      padding: 12px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-mute);
+    }
+    .btn-drawer {
+      flex: 1;
+      min-height: 44px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-drawer:hover { background: var(--bg-soft); }
+    .btn-drawer.primary {
+      background: var(--ink);
+      color: var(--surface);
+      border-color: var(--ink);
+    }
+    .btn-drawer.primary:hover { background: #2A3344; }
+
+    /* Counter chip flotante: "Mostrando 8 de 14" */
+    #counter {
+      position: fixed;
+      top: 96px;
+      right: 16px;
+      z-index: 850;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 12px;
+      color: var(--ink-2);
+      font-weight: 500;
+      box-shadow: var(--shadow-btn);
+      transition: opacity 0.2s, transform 0.2s;
+      letter-spacing: -0.005em;
+    }
+    #counter strong {
+      color: var(--ink);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    #counter.hidden {
+      opacity: 0;
+      transform: translateY(-6px);
+      pointer-events: none;
+    }
+
+    /* Leaflet popup */
+    .leaflet-popup-content-wrapper {
+      border-radius: 10px !important;
+      box-shadow: var(--shadow-card) !important;
+      border: 1.5px solid var(--border);
+      font-family: 'Inter', sans-serif;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .leaflet-popup-content { margin: 0 !important; }
+
+    .leaflet-popup-tip-container { display: none; }
+
+    .popup-inner {
+      padding: 12px 14px;
+      min-width: 220px;
+      max-width: 260px;
+    }
+
+    .popup-estado {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .popup-titulo {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.35;
+      margin-bottom: 10px;
+    }
+
+    .popup-btn {
+      display: block;
+      width: 100%;
+      min-height: 44px;
+      background: var(--ink);
+      color: var(--surface);
+      border: none;
+      border-radius: 6px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .popup-btn:hover { background: #1E293B; }
+
+    /* ───── RESPONSIVE MOBILE ───── */
+    @media (max-width: 640px) {
+      #topbar-inner { padding: 0 12px; gap: 8px; height: 56px; }
+      #topbar-strip { display: none; }
+      #logo-subtitle { display: none; }
+      #search-wrap { max-width: none; }
+      #search-input { font-size: 13px; }
+      #btn-filtros .filtros-label { display: none; }
+      #btn-filtros { padding: 0 12px; min-width: 44px; }
+      .chip { min-height: 44px; }
+
+      #panel-obra {
+        position: fixed;
+        top: auto;
+        bottom: 16px;
+        left: 12px; right: 12px;
+        width: auto;
+        max-height: 54vh;
+        overflow-y: auto;
+        border-radius: 16px;
+      }
+      #panel-obra.hidden {
+        transform: translateY(28px);
+        opacity: 0;
+      }
+
+      #counter {
+        top: auto;
+        bottom: 12px;
+        right: 12px;
+      }
+
+      #drawer {
+        top: auto; right: 0; bottom: 0;
+        width: 100%; max-width: none;
+        height: min(78vh, 620px);
+        border-radius: 18px 18px 0 0;
+        transform: translateY(100%);
+        box-shadow: 0 -10px 28px rgba(26,35,50,0.14);
+      }
+      #drawer.open { transform: translateY(0); }
+      .drawer-head { padding: 14px 16px 10px; }
+      .drawer-summary { padding: 10px 16px 12px; }
+      .drawer-body { padding: 14px 16px 18px; }
+      .drawer-actions { padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
+
+      #float-controls { bottom: 78px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- MAP -->
+  <div id="map"></div>
+
+  <!-- TOP BAR -->
+  <header id="topbar" role="banner">
+    <div id="topbar-inner">
+      <a id="logo" href="#" aria-label="ObrasCerca — inicio">
+        <div id="logo-icon" aria-hidden="true">
+          <span class="material-symbols-outlined">construction</span>
+        </div>
+        <span id="logo-text">
+          ObrasCerca
+          <!-- <span id="logo-subtitle">Callao</span> -->
+        </span>
+      </a>
+      <div id="search-wrap">
+        <span class="material-symbols-outlined" aria-hidden="true">search</span>
+        <label for="search-input" class="sr-only">Buscar obras</label>
+        <input id="search-input" type="text" placeholder="Buscar distrito, obra, entidad o contratista…" />
+      </div>
+      <button id="btn-filtros" type="button" aria-label="Abrir filtros" aria-haspopup="dialog" aria-expanded="false">
+        <span class="material-symbols-outlined" aria-hidden="true">tune</span>
+        <span class="filtros-label">Filtros</span>
+        <span class="filtros-count" id="filtros-count">14</span>
+      </button>
+      <button id="btn-location" type="button" title="Centrar en Callao" aria-label="Centrar en Callao">
+        <span class="material-symbols-outlined" aria-hidden="true">my_location</span>
+      </button>
+    </div>
+    <div id="topbar-strip" role="contentinfo">
+      <span class="material-symbols-outlined" aria-hidden="true">place</span>
+      <span><span class="strip-bold" id="strip-count">14 obras</span> en un radio de 3 km</span>
+      <span class="strip-sep" aria-hidden="true"></span>
+      <span>Información ciudadana, datos contrastables con <span class="strip-bold">INFObras</span> y <span class="strip-bold">SEACE</span></span>
+    </div>
+  </header>
+
+  <!-- COUNTER (estado de filtro activo) -->
+  <div id="counter" class="hidden" aria-live="polite">
+    Mostrando <strong id="counter-shown">14</strong> de <strong>14</strong> obras
+  </div>
+
+  <!-- PANEL OBRA — story flow -->
+    <aside id="panel-obra" class="hidden" aria-label="Detalle de obra seleccionada">
+    <div class="panel-band ejecucion" id="panel-band"></div>
+    <div class="panel-head">
+      <div class="estado-pill ejecucion" id="panel-estado-pill">
+        <span class="dot" style="background:currentColor"></span>
+        <span id="panel-estado-text">EN EJECUCIÓN</span>
+      </div>
+      <button class="btn-close" id="btn-close-panel" type="button" aria-label="Cerrar detalle">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
+    </div>
+
+    <h2 class="panel-titulo" id="panel-titulo">Mejoramiento de pistas y veredas Av. Sáenz Peña</h2>
+
+    <div class="panel-monto-row">
+      <span class="panel-monto-val" id="panel-monto">S/ 2.85 M</span>
+      <span class="panel-monto-label">monto adjudicado</span>
+    </div>
+
+    <div class="panel-meta">
+      <div class="panel-meta-row">
+        <span class="material-symbols-outlined" aria-hidden="true">domain</span>
+        <span><strong id="panel-entidad">Municipalidad Provincial del Callao</strong> · entidad responsable</span>
+      </div>
+      <div class="panel-meta-row">
+        <span class="material-symbols-outlined" aria-hidden="true">place</span>
+        <span id="panel-ubicacion">Callao, Cercado</span>
+      </div>
+    </div>
+
+    <div id="panel-senal-wrap" class="panel-senal">
+      <span class="material-symbols-outlined" aria-hidden="true">flag</span>
+      <span class="panel-senal-text">
+        <strong id="panel-senal-strong">Señal ciudadana de revisión.</strong> <span id="panel-senal-body">Puede requerir contraste con la fuente oficial antes de sacar conclusiones.</span>
+      </span>
+    </div>
+
+    <div class="panel-context" id="panel-context">
+      <strong>Lectura sugerida:</strong> esta ficha muestra una obra cercana y sus señales disponibles. No implica irregularidad.
+    </div>
+
+    <div class="panel-actions">
+      <a class="btn-ver-ficha" id="btn-ver-ficha" href="#" target="_blank" rel="noopener">
+        Ver detalle en INFObras
+        <span class="material-symbols-outlined" aria-hidden="true">open_in_new</span>
+      </a>
+      <span class="panel-fuente">
+        <span class="material-symbols-outlined" aria-hidden="true">database</span>
+        Fuente: <span id="panel-fuente">INFObras</span>
+      </span>
+    </div>
+  </aside>
+
+  <!-- DRAWER de filtros + leyenda + visualización -->
+  <div id="drawer-overlay" tabindex="-1"></div>
+  <aside id="drawer" role="dialog" aria-label="Filtros y leyenda" aria-modal="true">
+    <div class="drawer-head">
+      <span class="drawer-title">Filtros</span>
+      <button class="btn-close" id="btn-close-drawer" type="button" aria-label="Cerrar filtros">
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
+      </button>
+    </div>
+    <div class="drawer-summary">
+      <strong>Elegí qué mirar primero.</strong> Los colores ayudan a ubicar estados, pero la lectura principal está en la ficha y las fuentes.
+    </div>
+    <div class="drawer-body">
+      <section class="drawer-section">
+        <h3 class="drawer-section-title">Estado de la obra</h3>
+        <div class="chip-list" id="filter-chips">
+          <button class="chip" type="button" data-filter="todas" aria-pressed="true">
+            <span class="chip-left">Todas las obras</span>
+            <span class="chip-count" data-count="todas">14</span>
+          </button>
+          <button class="chip" type="button" data-filter="en_ejecucion" aria-pressed="false">
+            <span class="chip-left"><span class="dot" style="background:var(--orange)"></span>En ejecución</span>
+            <span class="chip-count" data-count="en_ejecucion">0</span>
+          </button>
+          <button class="chip" type="button" data-filter="en_licitacion" aria-pressed="false">
+            <span class="chip-left"><span class="dot" style="background:var(--red)"></span>En licitación</span>
+            <span class="chip-count" data-count="en_licitacion">0</span>
+          </button>
+          <button class="chip" type="button" data-filter="verificada" aria-pressed="false">
+            <span class="chip-left"><span class="dot" style="background:var(--green)"></span>Información contrastada</span>
+            <span class="chip-count" data-count="verificada">0</span>
+          </button>
+          <button class="chip" type="button" data-filter="con_senal" aria-pressed="false">
+            <span class="chip-left"><span class="dot" style="background:var(--yellow)"></span>Con señal ciudadana</span>
+            <span class="chip-count" data-count="con_senal">0</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="drawer-section">
+        <h3 class="drawer-section-title">Tipos de marcador</h3>
+        <div class="chip-list" style="gap:10px">
+          <div class="leyenda-item">
+            <div class="leyenda-dot" style="background:var(--orange)"><span class="material-symbols-outlined" aria-hidden="true">construction</span></div>
+            En ejecución
+          </div>
+          <div class="leyenda-item">
+            <div class="leyenda-dot" style="background:var(--red)"><span class="material-symbols-outlined" aria-hidden="true">gavel</span></div>
+            En licitación
+          </div>
+          <div class="leyenda-item">
+            <div class="leyenda-dot" style="background:var(--green)"><span class="material-symbols-outlined" aria-hidden="true">verified</span></div>
+            Información contrastada
+          </div>
+          <div class="leyenda-item">
+            <div class="leyenda-dot" style="background:var(--blue)"><span class="material-symbols-outlined" aria-hidden="true">info</span></div>
+            Punto informativo
+          </div>
+          <div class="leyenda-item">
+            <div class="leyenda-dot" style="background:var(--yellow)"><span class="material-symbols-outlined" aria-hidden="true">flag</span></div>
+            Señal ciudadana
+          </div>
+          <div class="leyenda-item" style="font-size:12px;color:var(--ink-2)">
+            <div class="leyenda-dot" style="background:rgba(217,119,6,0.18);border:2px solid rgba(217,119,6,0.55);box-shadow:none"></div>
+            Zona afectada (entorno)
+          </div>
+        </div>
+      </section>
+    </div>
+    <div class="drawer-actions">
+      <button class="btn-drawer" id="btn-reset-filters" type="button">Limpiar</button>
+      <button class="btn-drawer primary" id="btn-apply-filters" type="button">Aplicar</button>
+    </div>
+  </aside>
+
+  <!-- CONTROLES FLOTANTES -->
+  <div id="float-controls">
+    <button class="float-btn" id="btn-zoom-in" type="button" title="Acercar" aria-label="Acercar">
+      <span class="material-symbols-outlined" aria-hidden="true">add</span>
+    </button>
+    <button class="float-btn" id="btn-zoom-out" type="button" title="Alejar" aria-label="Alejar">
+      <span class="material-symbols-outlined" aria-hidden="true">remove</span>
+    </button>
+    <button class="float-btn" id="btn-layers" type="button" title="Cambiar capa" aria-label="Cambiar capa">
+      <span class="material-symbols-outlined" aria-hidden="true">layers</span>
+    </button>
+  </div>
+
+  <script>
+    // ────────────────────────────────────────────────
+    // DATOS MOCK — coordenadas reales del Callao (OSM/Google Maps)
+    // ────────────────────────────────────────────────
+    const obras = [
+      {
+        id: 1,
+        titulo: "Mejoramiento de pistas y veredas Av. Sáenz Peña",
+        estado: "en_ejecucion",
+        monto: "S/ 2.85 M",
+        entidad: "Municipalidad Provincial del Callao",
+        distrito: "Callao",
+        coords: [-12.0589, -77.1184],
+        conSenal: true,
+        fuente: "INFObras"
+      },
+      {
+        id: 2,
+        titulo: "Rehabilitación de pistas Av. Argentina tramo Faucett–Colonial",
+        estado: "en_ejecucion",
+        monto: "S/ 4.20 M",
+        entidad: "Municipalidad Provincial del Callao",
+        distrito: "Callao",
+        coords: [-12.0531, -77.1051],
+        conSenal: false,
+        fuente: "INFObras"
+      },
+      {
+        id: 3,
+        titulo: "Mejoramiento de infraestructura vial Av. Faucett cuadra 12-18",
+        estado: "en_licitacion",
+        monto: "S/ 6.70 M",
+        entidad: "Gobierno Regional del Callao",
+        distrito: "Callao",
+        coords: [-12.0483, -77.1043],
+        conSenal: true,
+        fuente: "SEACE"
+      },
+      {
+        id: 4,
+        titulo: "Construcción de parque zonal en Bellavista",
+        estado: "verificada",
+        monto: "S/ 1.35 M",
+        entidad: "Municipalidad de Bellavista",
+        distrito: "Bellavista",
+        coords: [-12.0617, -77.1063],
+        conSenal: false,
+        fuente: "INFObras"
+      },
+      {
+        id: 5,
+        titulo: "Ampliación de red de agua potable La Perla Norte",
+        estado: "en_ejecucion",
+        monto: "S/ 3.10 M",
+        entidad: "SEDAPAL",
+        distrito: "La Perla",
+        coords: [-12.0692, -77.1148],
+        conSenal: false,
+        fuente: "INFObras"
+      },
+      {
+        id: 6,
+        titulo: "Rehabilitación de vereda y berma central Av. La Marina",
+        estado: "en_licitacion",
+        monto: "S/ 2.45 M",
+        entidad: "Municipalidad Provincial del Callao",
+        distrito: "Callao",
+        coords: [-12.0551, -77.0993],
+        conSenal: true,
+        fuente: "SEACE"
+      },
+      {
+        id: 7,
+        titulo: "Instalación de alumbrado público LED Av. Colonial",
+        estado: "verificada",
+        monto: "S/ 1.80 M",
+        entidad: "Municipalidad Provincial del Callao",
+        distrito: "Callao",
+        coords: [-12.0519, -77.1128],
+        conSenal: false,
+        fuente: "INFObras"
+      },
+      {
+        id: 8,
+        titulo: "Mejoramiento de drenaje pluvial Carmen de la Legua",
+        estado: "en_ejecucion",
+        monto: "S/ 5.25 M",
+        entidad: "Municipalidad de Carmen de la Legua",
+        distrito: "Carmen de la Legua",
+        coords: [-12.0462, -77.0974],
+        conSenal: true,
+        fuente: "INFObras"
+      },
+      {
+        id: 9,
+        titulo: "Construcción losa deportiva Jr. Manuel Villavicencio",
+        estado: "en_licitacion",
+        monto: "S/ 0.95 M",
+        entidad: "Municipalidad de Bellavista",
+        distrito: "Bellavista",
+        coords: [-12.0643, -77.1025],
+        conSenal: false,
+        fuente: "SEACE"
+      },
+      {
+        id: 10,
+        titulo: "Rehabilitación de pistas Jr. Colina y Jr. Progreso",
+        estado: "en_ejecucion",
+        monto: "S/ 1.60 M",
+        entidad: "Municipalidad de La Perla",
+        distrito: "La Perla",
+        coords: [-12.0709, -77.1098],
+        conSenal: false,
+        fuente: "INFObras"
+      },
+      {
+        id: 11,
+        titulo: "Puesto de salud Modelo Bellavista — ampliación",
+        estado: "en_licitacion",
+        monto: "S/ 3.75 M",
+        entidad: "DIRESA Callao",
+        distrito: "Bellavista",
+        coords: [-12.0585, -77.1103],
+        conSenal: false,
+        fuente: "SEACE"
+      },
+      {
+        id: 12,
+        titulo: "Mejoramiento pistas y veredas Av. Gambetta tramo sur",
+        estado: "en_ejecucion",
+        monto: "S/ 7.40 M",
+        entidad: "Gobierno Regional del Callao",
+        distrito: "Callao",
+        coords: [-12.0441, -77.1175],
+        conSenal: true,
+        fuente: "INFObras"
+      },
+      {
+        id: 13,
+        titulo: "Hito: inicio de obras portuarias Zona Franca",
+        estado: "informativo",
+        monto: "—",
+        entidad: "APN (Autoridad Portuaria Nacional)",
+        distrito: "Callao",
+        coords: [-12.0498, -77.1258],
+        conSenal: false,
+        fuente: "INFObras"
+      },
+      {
+        id: 14,
+        titulo: "Rehabilitación veredas Jr. Ica, Carmen de la Legua",
+        estado: "verificada",
+        monto: "S/ 0.82 M",
+        entidad: "Municipalidad de Carmen de la Legua",
+        distrito: "Carmen de la Legua",
+        coords: [-12.0432, -77.0951],
+        conSenal: false,
+        fuente: "INFObras"
+      },
+      {
+        id: 15,
+        titulo: "Estado de avance reportado en Av. Sáenz Peña cuadra 8",
+        estado: "senal",
+        monto: "—",
+        entidad: "Ciudadano registrado",
+        distrito: "Callao",
+        coords: [-12.0601, -77.1162],
+        conSenal: true,
+        fuente: "Ciudadanos"
+      }
+    ];
+
+    // Tramos reales de avenidas del Callao
+    const tramos = [
+      {
+        nombre: "Av. Argentina (tramo Faucett–Colonial)",
+        estado: "en_ejecucion",
+        coords: [
+          [-12.0524, -77.1097],
+          [-12.0528, -77.1072],
+          [-12.0531, -77.1051],
+          [-12.0535, -77.1027],
+          [-12.0538, -77.1003],
+          [-12.0542, -77.0978],
+          [-12.0545, -77.0964]
+        ]
+      },
+      {
+        nombre: "Av. Faucett (tramo aeropuerto–Argentina)",
+        estado: "en_licitacion",
+        coords: [
+          [-12.0452, -77.1090],
+          [-12.0460, -77.1078],
+          [-12.0472, -77.1065],
+          [-12.0483, -77.1052],
+          [-12.0495, -77.1040],
+          [-12.0507, -77.1032],
+          [-12.0519, -77.1025]
+        ]
+      },
+      {
+        nombre: "Av. Sáenz Peña (tramo central Callao)",
+        estado: "en_ejecucion",
+        coords: [
+          [-12.0570, -77.1225],
+          [-12.0576, -77.1204],
+          [-12.0581, -77.1184],
+          [-12.0587, -77.1163],
+          [-12.0592, -77.1143],
+          [-12.0597, -77.1122]
+        ]
+      },
+      {
+        nombre: "Av. Colonial (tramo La Perla–Bellavista)",
+        estado: "verificada",
+        coords: [
+          [-12.0610, -77.1060],
+          [-12.0617, -77.1040],
+          [-12.0624, -77.1018],
+          [-12.0631, -77.0998],
+          [-12.0638, -77.0978],
+          [-12.0644, -77.0960]
+        ]
+      },
+      {
+        nombre: "Av. La Marina (tramo sur Bellavista)",
+        estado: "en_licitacion",
+        coords: [
+          [-12.0540, -77.0980],
+          [-12.0548, -77.0964],
+          [-12.0555, -77.0946],
+          [-12.0563, -77.0928],
+          [-12.0571, -77.0912],
+          [-12.0577, -77.0899]
+        ]
+      },
+      {
+        nombre: "Av. Néstor Gambetta (tramo norte)",
+        estado: "en_ejecucion",
+        coords: [
+          [-12.0420, -77.1185],
+          [-12.0432, -77.1178],
+          [-12.0444, -77.1172],
+          [-12.0457, -77.1168],
+          [-12.0469, -77.1162],
+          [-12.0481, -77.1157],
+          [-12.0493, -77.1150]
+        ]
+      },
+      {
+        nombre: "Av. Oscar R. Benavides (tramo Bellavista)",
+        estado: "verificada",
+        coords: [
+          [-12.0638, -77.1098],
+          [-12.0645, -77.1075],
+          [-12.0651, -77.1053],
+          [-12.0656, -77.1031],
+          [-12.0661, -77.1010]
+        ]
+      }
+    ];
+
+    // ────────────────────────────────────────────────
+    // MAP INIT
+    // ────────────────────────────────────────────────
+    const CALLAO_CENTER = [-12.0566, -77.1181];
+
+    const map = L.map('map', {
+      center: CALLAO_CENTER,
+      zoom: 14,
+      zoomControl: false,
+      attributionControl: true
+    });
+
+    // CartoDB Positron tiles
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 20
+    }).addTo(map);
+
+    // ────────────────────────────────────────────────
+    // POLYLINES
+    // ────────────────────────────────────────────────
+    const cssColor = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const stateColors = {
+      en_ejecucion: cssColor('--orange'),
+      en_licitacion: cssColor('--red'),
+      verificada: cssColor('--green'),
+      informativo: cssColor('--blue'),
+      senal: cssColor('--yellow')
+    };
+    const stateSoftColors = {
+      ejecucion: cssColor('--orange-soft'),
+      licitacion: cssColor('--red-soft'),
+      verificada: cssColor('--green-soft'),
+      informativo: cssColor('--blue-soft'),
+      senal: cssColor('--yellow-soft')
+    };
+
+    const colorByEstado = {
+      en_ejecucion: stateColors.en_ejecucion,
+      en_licitacion: stateColors.en_licitacion,
+      verificada: stateColors.verificada
+    };
+
+    // Polylines como "cinta de obra": base blanca + rayas diagonales del color del estado
+    const polylineLayer = L.layerGroup();
+
+    tramos.forEach(t => {
+      const color = colorByEstado[t.estado] || '#1E88E5';
+      const base = L.polyline(t.coords, {
+        color: '#FDFBF5',
+        weight: 10,
+        opacity: 0.95,
+        lineCap: 'round',
+        lineJoin: 'round'
+      });
+      const tape = L.polyline(t.coords, {
+        color,
+        weight: 7,
+        opacity: 0.95,
+        dashArray: '10, 8',
+        lineCap: 'butt',
+        lineJoin: 'round'
+      });
+      tape.bindTooltip(`<strong style="font-family:Inter,sans-serif;font-size:12px">${t.nombre}</strong>`, {
+        sticky: true, direction: 'top'
+      });
+      polylineLayer.addLayer(base);
+      polylineLayer.addLayer(tape);
+    });
+    // No se agrega al mapa por defecto — la viz primaria son los círculos de impacto
+
+    // ────────────────────────────────────────────────
+    // MARKERS
+    // ────────────────────────────────────────────────
+    const iconConfig = {
+      en_ejecucion:  { color: stateColors.en_ejecucion, icon: 'construction' },
+      en_licitacion: { color: stateColors.en_licitacion, icon: 'gavel' },
+      verificada:    { color: stateColors.verificada, icon: 'verified' },
+      informativo:   { color: stateColors.informativo, icon: 'info' },
+      senal:         { color: stateColors.senal, icon: 'flag' }
+    };
+
+    function makeIcon(estado) {
+      const cfg = iconConfig[estado] || iconConfig.informativo;
+      return L.divIcon({
+        className: '',
+        html: `<div class="marker-pin" style="background:${cfg.color};color:${cfg.color}">
+          <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">${cfg.icon}</span>
+        </div>`,
+        iconSize: [44, 44],
+        iconAnchor: [22, 22],
+        popupAnchor: [0, -22]
+      });
+    }
+
+    const estadoLabel = {
+      en_ejecucion: 'En ejecución',
+      en_licitacion: 'En licitación',
+      verificada: 'Información contrastada',
+      informativo: 'Informativo',
+      senal: 'Señal ciudadana'
+    };
+
+    const senalCopy = {
+      default: {
+        strong: 'Señal ciudadana de revisión.',
+        body: 'Puede requerir contraste con la fuente oficial antes de sacar conclusiones.'
+      },
+      senal: {
+        strong: 'Revisión sugerida.',
+        body: 'Este punto nace de un reporte ciudadano y debe leerse junto a la fuente oficial disponible.'
+      }
+    };
+
+    const estadoPillClass = {
+      en_ejecucion: 'ejecucion',
+      en_licitacion: 'licitacion',
+      verificada: 'verificada',
+      informativo: 'informativo',
+      senal: 'senal'
+    };
+
+    // Cluster group
+    const clusterGroup = L.markerClusterGroup({
+      maxClusterRadius: 60,
+      iconCreateFunction(cluster) {
+        const count = cluster.getChildCount();
+        const size = count < 10 ? 40 : count < 30 ? 52 : 64;
+        return L.divIcon({
+          html: `<div style="
+            width:${size}px;height:${size}px;border-radius:50%;
+            background:#374151;color:var(--surface);
+            font-family:Inter,sans-serif;font-size:${count>9?13:14}px;font-weight:700;
+            border:2.5px solid var(--surface-raised);
+            display:flex;align-items:center;justify-content:center;
+            box-shadow:0 2px 8px rgba(0,0,0,0.28);
+          ">${count}</div>`,
+          className: '',
+          iconSize: [size, size],
+          iconAnchor: [size/2, size/2]
+        });
+      }
+    });
+
+    let allMarkers = [];
+    let selectedObraId = null;
+
+    obras.forEach(obra => {
+      const marker = L.marker(obra.coords, { icon: makeIcon(obra.estado) });
+
+      const cfg = iconConfig[obra.estado] || iconConfig.informativo;
+      const pillClass = estadoPillClass[obra.estado] || 'informativo';
+      const pillBg = stateSoftColors;
+      const pillColor = { ejecucion: stateColors.en_ejecucion, licitacion: stateColors.en_licitacion, verificada: stateColors.verificada, informativo: stateColors.informativo, senal: stateColors.senal };
+
+      const popupHtml = `
+        <div class="popup-inner">
+          <div class="popup-estado" style="background:${pillBg[pillClass]||'#FFF3E0'};color:${pillColor[pillClass]||'#FB8C00'}">
+            ${estadoLabel[obra.estado] || obra.estado}
+          </div>
+          <div class="popup-titulo">${obra.titulo}</div>
+          <button class="popup-btn" onclick="selectObra(${obra.id})">Ver detalle</button>
+        </div>`;
+
+      marker.bindPopup(popupHtml, { maxWidth: 280, closeButton: false });
+      marker.obraId = obra.id;
+      marker.obraEstado = obra.estado;
+
+      marker.on('click', () => {
+        selectObra(obra.id);
+      });
+
+      clusterGroup.addLayer(marker);
+      allMarkers.push(marker);
+    });
+
+    map.addLayer(clusterGroup);
+
+    // ────────────────────────────────────────────────
+    // CÍRCULOS DE IMPACTO (zona afectada)
+    // ────────────────────────────────────────────────
+    function radiusFromObra(obra) {
+      if (obra.estado === 'informativo' || obra.estado === 'senal') return 60;
+      const m = parseFloat((obra.monto || '').replace(/[^\d.]/g, ''));
+      if (isNaN(m)) return 80;
+      if (m < 1) return 50;
+      if (m < 3) return 80;
+      if (m < 5) return 110;
+      return 140;
+    }
+
+    const circleLayer = L.layerGroup().addTo(map);
+    const circlesById = new Map();
+
+    function syncSelectedMarker() {
+      allMarkers.forEach(marker => {
+        const el = marker.getElement();
+        const pin = el ? el.querySelector('.marker-pin') : null;
+        if (pin) pin.classList.toggle('is-selected', marker.obraId === selectedObraId);
+      });
+    }
+
+    function syncSelectedCircle() {
+      circlesById.forEach((circle, id) => {
+        const obra = obras.find(o => o.id === id);
+        const cfg = iconConfig[obra?.estado] || iconConfig.informativo;
+        const selected = id === selectedObraId;
+        circle.setStyle({
+          color: cfg.color,
+          weight: selected ? 4 : 2,
+          opacity: selected ? 0.82 : 0.55,
+          fillOpacity: selected ? 0.22 : 0.14
+        });
+        if (selected) circle.bringToFront();
+      });
+    }
+
+    obras.forEach(obra => {
+      const cfg = iconConfig[obra.estado] || iconConfig.informativo;
+      const c = L.circle(obra.coords, {
+        radius: radiusFromObra(obra),
+        color: cfg.color,
+        weight: 2,
+        opacity: 0.55,
+        fillColor: cfg.color,
+        fillOpacity: 0.14,
+        interactive: false
+      });
+      c.obraId = obra.id;
+      circleLayer.addLayer(c);
+      circlesById.set(obra.id, c);
+    });
+
+    // ────────────────────────────────────────────────
+    // PANEL OBRA
+    // ────────────────────────────────────────────────
+    function selectObra(id) {
+      const obra = obras.find(o => o.id === id);
+      if (!obra) return;
+
+      const pill = document.getElementById('panel-estado-pill');
+      const pillClass = estadoPillClass[obra.estado] || 'informativo';
+      pill.className = `estado-pill ${pillClass}`;
+      document.getElementById('panel-band').className = `panel-band ${pillClass}`;
+      const dot = pill.querySelector('.dot');
+      const dotColor = { ejecucion: 'var(--orange)', licitacion: 'var(--red)', verificada: 'var(--green)', informativo: 'var(--blue)', senal: 'var(--yellow)' };
+      if (dot) dot.style.background = dotColor[pillClass] || 'var(--blue)';
+      document.getElementById('panel-titulo').textContent = obra.titulo;
+      document.getElementById('panel-ubicacion').textContent = `${obra.distrito}, Callao`;
+      document.getElementById('panel-monto').textContent = obra.monto;
+
+      const estadoTxtEl = document.getElementById('panel-estado-text');
+      estadoTxtEl.textContent = estadoLabel[obra.estado] || obra.estado;
+      estadoTxtEl.style.color = dotColor[pillClass] || 'var(--blue)';
+
+      document.getElementById('panel-entidad').textContent = obra.entidad;
+      document.getElementById('panel-fuente').textContent = obra.fuente;
+
+      const senalWrap = document.getElementById('panel-senal-wrap');
+      senalWrap.style.display = obra.conSenal ? 'flex' : 'none';
+      const copy = obra.estado === 'senal' ? senalCopy.senal : senalCopy.default;
+      document.getElementById('panel-senal-strong').textContent = copy.strong;
+      document.getElementById('panel-senal-body').textContent = copy.body;
+
+      const panel = document.getElementById('panel-obra');
+      panel.classList.remove('hidden');
+      selectedObraId = id;
+      syncSelectedMarker();
+      syncSelectedCircle();
+    }
+
+    function setFilterCounts() {
+      const counts = {
+        todas: obras.length,
+        en_ejecucion: obras.filter(o => o.estado === 'en_ejecucion').length,
+        en_licitacion: obras.filter(o => o.estado === 'en_licitacion').length,
+        verificada: obras.filter(o => o.estado === 'verificada').length,
+        con_senal: obras.filter(o => o.conSenal).length
+      };
+      Object.entries(counts).forEach(([key, value]) => {
+        const el = document.querySelector(`[data-count="${key}"]`);
+        if (el) el.textContent = value;
+      });
+      document.getElementById('filtros-count').textContent = counts.todas;
+      document.getElementById('strip-count').textContent = `${counts.todas} obras`;
+    }
+
+    setFilterCounts();
+
+    document.getElementById('btn-close-panel').addEventListener('click', () => {
+      document.getElementById('panel-obra').classList.add('hidden');
+    });
+
+    map.on('zoomend moveend layeradd', () => requestAnimationFrame(syncSelectedMarker));
+
+    const drawer = document.getElementById('drawer');
+    const drawerOverlay = document.getElementById('drawer-overlay');
+    const btnFiltros = document.getElementById('btn-filtros');
+    let lastDrawerTrigger = null;
+    const closeDrawer = () => {
+      drawer.classList.remove('open');
+      drawerOverlay.classList.remove('open');
+      btnFiltros.setAttribute('aria-expanded', 'false');
+      if (lastDrawerTrigger) lastDrawerTrigger.focus({ preventScroll: true });
+    };
+    const openDrawer = () => {
+      lastDrawerTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : btnFiltros;
+      drawer.classList.add('open');
+      drawerOverlay.classList.add('open');
+      btnFiltros.setAttribute('aria-expanded', 'true');
+      requestAnimationFrame(() => document.getElementById('btn-close-drawer').focus({ preventScroll: true }));
+    };
+    btnFiltros.addEventListener('click', openDrawer);
+    document.getElementById('btn-close-drawer').addEventListener('click', closeDrawer);
+    document.getElementById('btn-apply-filters').addEventListener('click', closeDrawer);
+    drawerOverlay.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeDrawer();
+      if (event.key === 'Tab' && drawer.classList.contains('open')) {
+        const focusable = drawer.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    });
+
+    // ────────────────────────────────────────────────
+    // FILTERS
+    // ────────────────────────────────────────────────
+    document.querySelectorAll('.chip[data-filter]').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const filter = chip.dataset.filter;
+        if (!['todas', 'en_ejecucion', 'en_licitacion', 'verificada', 'con_senal'].includes(filter)) return;
+
+        document.querySelectorAll('.chip[data-filter]').forEach(c => c.setAttribute('aria-pressed', 'false'));
+        chip.setAttribute('aria-pressed', 'true');
+
+        clusterGroup.clearLayers();
+        circleLayer.clearLayers();
+
+        const filtered = obras.filter(obra => {
+          if (filter === 'todas') return true;
+          if (filter === 'en_ejecucion') return obra.estado === 'en_ejecucion';
+          if (filter === 'en_licitacion') return obra.estado === 'en_licitacion';
+          if (filter === 'verificada') return obra.estado === 'verificada';
+          if (filter === 'con_senal') return obra.conSenal;
+          return true;
+        });
+
+        filtered.forEach(obra => {
+          const marker = allMarkers.find(m => m.obraId === obra.id);
+          if (marker) clusterGroup.addLayer(marker);
+          const circle = circlesById.get(obra.id);
+          if (circle) circleLayer.addLayer(circle);
+        });
+
+        document.getElementById('counter').classList.toggle('hidden', filter === 'todas');
+        document.getElementById('counter-shown').textContent = filtered.length;
+        document.getElementById('filtros-count').textContent = filtered.length;
+        document.getElementById('strip-count').textContent = `${filtered.length} obras`;
+        btnFiltros.classList.toggle('has-active', filter !== 'todas');
+        syncSelectedMarker();
+        syncSelectedCircle();
+      });
+    });
+
+    document.getElementById('btn-reset-filters').addEventListener('click', () => {
+      const allChip = document.querySelector('.chip[data-filter="todas"]');
+      if (allChip) allChip.click();
+    });
+
+    // ────────────────────────────────────────────────
+    // CONTROLS
+    // ────────────────────────────────────────────────
+    document.getElementById('btn-zoom-in').addEventListener('click', () => map.zoomIn());
+    document.getElementById('btn-zoom-out').addEventListener('click', () => map.zoomOut());
+    document.getElementById('btn-location').addEventListener('click', () => {
+      map.flyTo(CALLAO_CENTER, 14, { duration: 1.2 });
+    });
+
+    // Layer switcher — toggle between light and dark Carto tiles
+    let darkMode = false;
+    const lightTile = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+    const darkTile  = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    let currentTileLayer = null;
+
+    // Re-add tile reference for toggling
+    map.eachLayer(l => { if (l._url) currentTileLayer = l; });
+
+    document.getElementById('btn-layers').addEventListener('click', () => {
+      darkMode = !darkMode;
+      map.eachLayer(l => { if (l._url) map.removeLayer(l); });
+      L.tileLayer(darkMode ? darkTile : lightTile, {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 20
+      }).addTo(map);
+      // Reañadir capas respetando el modo de visualización actual
+      const v = (typeof tweaks !== 'undefined' && tweaks.viz) || 'zonas';
+      if (v === 'zonas' || v === 'ambos') circleLayer.addTo(map);
+      if (v === 'tramos' || v === 'ambos') polylineLayer.addTo(map);
+      clusterGroup.addTo(map);
+
+      const btn = document.getElementById('btn-layers');
+      btn.style.background = darkMode ? '#374151' : 'var(--surface)';
+      btn.querySelector('.material-symbols-outlined').style.color = darkMode ? 'var(--surface)' : 'var(--ink)';
+    });
+
+    // ────────────────────────────────────────────────
+    // LEYENDA
+    // ────────────────────────────────────────────────
+    let leyendaOpen = false;
+    const leyendaPanel = document.getElementById('leyenda-panel');
+    const leyendaCaret = document.getElementById('leyenda-caret');
+
+    const leyendaToggle = document.getElementById('leyenda-toggle');
+    if (leyendaToggle && leyendaPanel && leyendaCaret) {
+      leyendaToggle.addEventListener('click', () => {
+        leyendaOpen = !leyendaOpen;
+        leyendaPanel.classList.toggle('collapsed', !leyendaOpen);
+        leyendaCaret.textContent = leyendaOpen ? 'expand_more' : 'expand_less';
+      });
+    }
+
+    // ────────────────────────────────────────────────
+    // TWEAKS (edit mode)
+    // ────────────────────────────────────────────────
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "tileStyle": "light",
+      "viz": "zonas",
+      "clusterRadius": 60,
+      "panelOpen": true
+    }/*EDITMODE-END*/;
+
+    let tweaks = { ...TWEAK_DEFAULTS };
+
+    // Register tweaks panel availability
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.type === '__activate_edit_mode') showTweaks();
+      if (e.data && e.data.type === '__deactivate_edit_mode') hideTweaks();
+    });
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+
+    // Simple tweaks implementation (no external JSX needed)
+    function showTweaks() {
+      let panel = document.getElementById('tweaks-panel');
+      if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'tweaks-panel';
+        panel.innerHTML = `
+          <style>
+            #tweaks-panel {
+              position:fixed; bottom:72px; right:72px;
+              background:var(--surface-raised);
+              border:1.5px solid #E5E7EB; border-radius:12px;
+              box-shadow:0 8px 24px rgba(15,23,42,0.12);
+              padding:16px; width:220px; z-index:9999;
+              font-family:Inter,sans-serif;
+            }
+            #tweaks-panel h3 {
+              font-size:12px; font-weight:700; letter-spacing:0.07em;
+              text-transform:uppercase; color:#94A3B8; margin-bottom:14px;
+              display:flex; align-items:center; justify-content:space-between;
+            }
+            #tweaks-panel .tw-close {
+              cursor:pointer; font-size:16px; color:#94A3B8;
+              background:none; border:none; padding:0; line-height:1;
+            }
+            .tw-row { display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+            .tw-row label { font-size:12px; font-weight:500; color:#475569; }
+            .tw-row select, .tw-row input[type=range] {
+              width:100%; font-family:Inter,sans-serif; font-size:13px;
+              border:1.5px solid #E5E7EB; border-radius:6px; padding:5px 8px;
+              background:#F8FAFC; color:#0F172A;
+            }
+            .tw-toggle { display:flex; align-items:center; justify-content:space-between; }
+            .tw-toggle label { font-size:13px; font-weight:500; color:#0F172A; }
+            .tw-switch { position:relative; width:36px; height:20px; }
+            .tw-switch input { opacity:0; width:0; height:0; }
+            .tw-slider-sw {
+              position:absolute; inset:0; border-radius:999px;
+              background:#CBD5E1; cursor:pointer; transition:background 0.2s;
+            }
+            .tw-slider-sw::before {
+              content:''; position:absolute;
+              width:16px; height:16px; left:2px; bottom:2px;
+              background:white; border-radius:50%; transition:transform 0.2s;
+              box-shadow:0 1px 3px rgba(0,0,0,0.2);
+            }
+            .tw-switch input:checked + .tw-slider-sw { background:#0F172A; }
+            .tw-switch input:checked + .tw-slider-sw::before { transform:translateX(16px); }
+          </style>
+          <h3>Tweaks <button class="tw-close" id="tw-close">✕</button></h3>
+          <div class="tw-row">
+            <label>Estilo de mapa</label>
+            <select id="tw-tile">
+              <option value="light">Claro (Positron)</option>
+              <option value="dark">Oscuro (Dark Matter)</option>
+              <option value="voyager">Voyager (colores)</option>
+            </select>
+          </div>
+          <div class="tw-row">
+            <label>Visualización de obras</label>
+            <select id="tw-viz">
+              <option value="zonas">Zonas de impacto (círculos)</option>
+              <option value="tramos">Tramos viales (cinta)</option>
+              <option value="ambos">Ambos</option>
+            </select>
+          </div>
+          <div class="tw-row">
+            <label>Radio de cluster: <strong id="tw-cluster-val">60</strong>m</label>
+            <input type="range" id="tw-cluster" min="20" max="120" step="10" value="60" />
+          </div>
+        `;
+        document.body.appendChild(panel);
+
+        document.getElementById('tw-close').addEventListener('click', () => {
+          hideTweaks();
+          window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*');
+        });
+
+        document.getElementById('tw-tile').addEventListener('change', (e) => {
+          const val = e.target.value;
+          tweaks.tileStyle = val;
+          const urls = {
+            light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+            dark:  'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+            voyager: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+          };
+          map.eachLayer(l => { if (l._url) map.removeLayer(l); });
+          L.tileLayer(urls[val], {
+            attribution: '&copy; <a href="https://openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd', maxZoom: 20
+          }).addTo(map);
+          if (tweaks.viz === 'zonas' || tweaks.viz === 'ambos') circleLayer.addTo(map);
+          if (tweaks.viz === 'tramos' || tweaks.viz === 'ambos') polylineLayer.addTo(map);
+          clusterGroup.addTo(map);
+          window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { tileStyle: val } }, '*');
+        });
+
+        document.getElementById('tw-viz').addEventListener('change', (e) => {
+          const val = e.target.value;
+          tweaks.viz = val;
+          circleLayer.remove();
+          polylineLayer.remove();
+          if (val === 'zonas' || val === 'ambos') circleLayer.addTo(map);
+          if (val === 'tramos' || val === 'ambos') polylineLayer.addTo(map);
+          window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { viz: val } }, '*');
+        });
+
+        document.getElementById('tw-cluster').addEventListener('input', (e) => {
+          document.getElementById('tw-cluster-val').textContent = e.target.value;
+          tweaks.clusterRadius = parseInt(e.target.value);
+          window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { clusterRadius: tweaks.clusterRadius } }, '*');
+        });
+      }
+      panel.style.display = 'block';
+    }
+
+    function hideTweaks() {
+      const p = document.getElementById('tweaks-panel');
+      if (p) p.style.display = 'none';
+    }
+
+    // expose for popup buttons
+    window.selectObra = selectObra;
+  </script>
+</body>
+</html>

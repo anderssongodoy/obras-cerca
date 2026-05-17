@@ -1,0 +1,22 @@
+<div class="actions">
+  @if (obra().urlInfobras) {
+    <a
+      class="btn-ver-ficha"
+      [href]="obra().urlInfobras!"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <span>Ver ficha completa</span>
+      <app-icon name="open_in_new" />
+    </a>
+  } @else {
+    <button class="btn-ver-ficha" type="button" disabled>
+      <span>Ficha no disponible</span>
+    </button>
+  }
+
+  <div class="fuente">
+    <app-icon name="source" />
+    <span>Fuente: <strong>{{ obra().fuente }}</strong></span>
+  </div>
+</div>

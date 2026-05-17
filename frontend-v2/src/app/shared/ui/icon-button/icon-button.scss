@@ -1,0 +1,34 @@
+:host { display: inline-flex; }
+
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--mute);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-2);
+  transition: background 0.15s, color 0.15s;
+}
+
+.icon-btn:hover {
+  background: var(--soft);
+  color: var(--ink);
+}
+
+.icon-btn--subtle {
+  background: transparent;
+  color: var(--ink-3);
+}
+
+.icon-btn--subtle:hover {
+  background: var(--mute);
+  color: var(--ink);
+}
+
+.icon-btn app-icon {
+  font-size: 18px;
+}

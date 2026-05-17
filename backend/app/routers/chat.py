@@ -55,10 +55,7 @@ def preguntar(body: PreguntaIn, obra_id: int = Path(..., gt=0)) -> dict:
         }
 
     # 2. Validar que la obra existe
-    obra = fetch_one(
-        "SELECT id, nombre_obra, nombre_inversion FROM obra WHERE id = %s",
-        (obra_id,),
-    )
+    obra = fetch_one("SELECT id FROM obra WHERE id = %s", (obra_id,))
     if not obra:
         raise HTTPException(status_code=404, detail="Obra no encontrada")
 
@@ -177,7 +174,7 @@ def sugerencias(obra_id: int = Path(..., gt=0)) -> dict:
             o.id,
             o.estado_obra_wfs,
             o.existe_informe_control,
-            o.es_saldo_obra,
+            (o.obra_padre_id IS NOT NULL) AS es_saldo_obra,
             COALESCE(p.estado::text, '') AS estado_proyecto_mef,
             EXISTS (SELECT 1 FROM senal_revision s WHERE s.obra_id = o.id AND s.activa) AS tiene_senal,
             EXISTS (SELECT 1 FROM documento_chunk dc WHERE dc.obra_id = o.id) AS tiene_chunks

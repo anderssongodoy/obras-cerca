@@ -6,6 +6,7 @@ pydantic>=2.7
 python-dotenv>=1.0
 requests>=2.32
 anthropic>=0.40
+openai>=1.50
 
 # RAG — embeddings se generan vía HuggingFace Inference API (sin deps pesadas).
 # Solo se necesita HF_TOKEN en .env (gratis en huggingface.co/settings/tokens).

@@ -188,31 +188,33 @@ def chat_rag(pregunta: str, chunks: list[dict]) -> dict[str, Any]:
 
     if provider == "minimax" and MINIMAX_API_KEY:
         try:
-            import anthropic
-            client = anthropic.Anthropic(api_key=MINIMAX_API_KEY, base_url=MINIMAX_BASE_URL)
+            # Minimax expone una API compatible con OpenAI (no con Anthropic).
+            # Endpoint estándar: POST {base_url}/chat/completions
+            from openai import OpenAI
+            client = OpenAI(api_key=MINIMAX_API_KEY, base_url=MINIMAX_BASE_URL)
             prompt = build_rag_prompt(pregunta, chunks)
-            resp = client.messages.create(
+            resp = client.chat.completions.create(
                 model=MINIMAX_MODEL,
                 max_tokens=600,
-                system=SYSTEM_RAG,
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {"role": "system", "content": SYSTEM_RAG},
+                    {"role": "user", "content": prompt},
+                ],
             )
-            texto = "".join(
-                b.text for b in resp.content if getattr(b, "type", None) == "text"
-            ).strip()
+            texto = (resp.choices[0].message.content or "").strip()
             usage = getattr(resp, "usage", None)
             return {
                 "provider": "minimax",
                 "modelo": MINIMAX_MODEL,
                 "respuesta": texto,
-                "tokens_input": (getattr(usage, "input_tokens", 0) or 0) if usage else 0,
-                "tokens_output": (getattr(usage, "output_tokens", 0) or 0) if usage else 0,
+                "tokens_input": (getattr(usage, "prompt_tokens", 0) or 0) if usage else 0,
+                "tokens_output": (getattr(usage, "completion_tokens", 0) or 0) if usage else 0,
             }
         except Exception as e:
             log.exception("Minimax falló, usando stub")
             return {
                 "provider": "fallback",
-                "modelo": f"error:{type(e).__name__}",
+                "modelo": f"error:{type(e).__name__}:{str(e)[:80]}",
                 "respuesta": _stub_rag(pregunta, chunks),
                 "tokens_input": 0, "tokens_output": 0,
             }

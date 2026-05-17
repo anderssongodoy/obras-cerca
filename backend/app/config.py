@@ -34,3 +34,16 @@ HTTP_UA = os.getenv(
 # Si está vacío, el endpoint admin rechaza todo (modo seguro por default).
 INGESTA_TOKEN = os.getenv("INGESTA_TOKEN", "")
 SCRIPTS_DIR = BACKEND_DIR / "scripts"
+
+# RAG / embeddings.
+# EMBED_PROVIDER:
+#   - 'auto'      (default): usa sentence-transformers si está disponible, sino HF API
+#   - 'local'     : fuerza sentence-transformers (requiere pip install -r requirements-rag.txt)
+#   - 'hf_api'    : fuerza HuggingFace Inference API (necesita HF_TOKEN para evitar rate limit)
+EMBED_PROVIDER = os.getenv("EMBED_PROVIDER", "auto").lower()
+EMBED_MODEL = os.getenv("EMBED_MODEL", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+HF_TOKEN = os.getenv("HF_TOKEN", "")
+HF_API_URL = os.getenv(
+    "HF_API_URL",
+    "https://router.huggingface.co/hf-inference/models/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2/pipeline/feature-extraction",
+)

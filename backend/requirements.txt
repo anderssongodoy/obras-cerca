@@ -7,7 +7,7 @@ python-dotenv>=1.0
 requests>=2.32
 anthropic>=0.40
 
-# RAG — embeddings locales para el chat sobre informes de Contraloría
-# sentence-transformers descarga ~500 MB la primera vez y consume ~400 MB RAM al cargar.
-# El modelo se carga lazy (en la primera pregunta), no al startup de uvicorn.
-sentence-transformers>=3.0.0,<4.0.0
+# RAG — embeddings se generan vía HuggingFace Inference API (sin deps pesadas).
+# Solo se necesita HF_TOKEN en .env (gratis en huggingface.co/settings/tokens).
+# Si HF cae, fallback determinístico para no dejar muda la UI.
+# Para indexar PDFs en local: pip install -r requirements-rag.txt aparte.

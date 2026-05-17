@@ -1,10 +1,16 @@
 """Capa RAG — chat sobre informes de Contraloría.
 
-Carga lazy el modelo sentence-transformers (paraphrase-multilingual-MiniLM-L12-v2, 384 dim).
-El modelo NO se carga en startup para que uvicorn arranque rápido — se carga la primera
-vez que se hace una pregunta. Después queda en memoria del proceso.
+Embeddings: 2 proveedores, decidido por EMBED_PROVIDER:
+  - 'local'  : sentence-transformers en proceso (necesita ~400 MB RAM + disco)
+              Usado en LOCAL al indexar PDFs (script 07).
+  - 'hf_api' : HuggingFace Inference API (cero deps, free tier ~1000 req/día)
+              Usado en EC2 donde el disco/RAM están justos.
+  - 'auto'   : usa local si está instalado, sino hf_api.
 
-Si Minimax falla, fallback determinístico para no dejar muda la UI.
+Ambos devuelven el MISMO vector porque ambos usan el modelo
+sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 (384 dim).
+
+Si todo falla, fallback determinístico para no dejar muda la UI.
 """
 from __future__ import annotations
 
@@ -12,42 +18,114 @@ import logging
 from threading import Lock
 from typing import Any
 
+import requests
+
 from .config import (
     ANTHROPIC_API_KEY, ANTHROPIC_MODEL,
+    EMBED_MODEL, EMBED_PROVIDER, HF_API_URL, HF_TOKEN,
     LLM_PROVIDER,
     MINIMAX_API_KEY, MINIMAX_BASE_URL, MINIMAX_MODEL,
 )
 
 log = logging.getLogger(__name__)
 
-_model = None
-_model_lock = Lock()
+_local_model = None
+_local_model_lock = Lock()
+_local_unavailable = False
 
 
-def get_embed_model():
-    """Lazy load del modelo sentence-transformers (singleton thread-safe)."""
-    global _model
-    if _model is None:
-        with _model_lock:
-            if _model is None:
-                log.info("Cargando modelo embeddings (toma 10-30 seg la primera vez)...")
-                from sentence_transformers import SentenceTransformer
-                _model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
-                log.info("Modelo cargado. Dim: %s", _model.get_sentence_embedding_dimension())
-    return _model
+def _get_local_model():
+    """Lazy load del modelo sentence-transformers. Devuelve None si no está instalado."""
+    global _local_model, _local_unavailable
+    if _local_unavailable:
+        return None
+    if _local_model is None:
+        with _local_model_lock:
+            if _local_model is None and not _local_unavailable:
+                try:
+                    log.info("Cargando modelo embeddings local (toma 10-30s)...")
+                    from sentence_transformers import SentenceTransformer
+                    _local_model = SentenceTransformer(EMBED_MODEL.split("/")[-1])
+                    log.info("Modelo local cargado. Dim: %s", _local_model.get_sentence_embedding_dimension())
+                except ImportError:
+                    log.info("sentence-transformers no instalado, usando HF Inference API")
+                    _local_unavailable = True
+                    return None
+                except Exception as e:
+                    log.exception("Error cargando modelo local")
+                    _local_unavailable = True
+                    return None
+    return _local_model
+
+
+def _embed_local(text: str) -> list[float] | None:
+    """Embedding con modelo local. Devuelve None si no disponible."""
+    model = _get_local_model()
+    if model is None:
+        return None
+    vec = model.encode([text], convert_to_numpy=True, show_progress_bar=False)[0]
+    return vec.tolist()
+
+
+def _embed_hf_api(text: str) -> list[float] | None:
+    """Embedding via HuggingFace Inference API. Devuelve None si falla."""
+    headers = {"Content-Type": "application/json"}
+    if HF_TOKEN:
+        headers["Authorization"] = f"Bearer {HF_TOKEN}"
+    try:
+        r = requests.post(
+            HF_API_URL,
+            json={"inputs": text},
+            headers=headers,
+            timeout=30,
+        )
+        r.raise_for_status()
+        data = r.json()
+        # La API devuelve directamente el vector como lista de floats (para feature-extraction).
+        # Algunos modelos devuelven lista de listas (uno por token) — promediar.
+        if isinstance(data, list):
+            if data and isinstance(data[0], list):
+                # token-level → mean pooling
+                import statistics
+                dim = len(data[0])
+                return [statistics.fmean(row[i] for row in data) for i in range(dim)]
+            elif data and isinstance(data[0], (int, float)):
+                return [float(x) for x in data]
+        log.warning("HF API respondió formato inesperado: %s", str(data)[:200])
+        return None
+    except Exception as e:
+        log.exception("HF Inference API falló: %s", e)
+        return None
 
 
 def embed_text(text: str) -> list[float]:
-    """Genera embedding 384-dim para un texto."""
-    model = get_embed_model()
-    vec = model.encode([text], convert_to_numpy=True, show_progress_bar=False)[0]
-    return vec.tolist()
+    """Genera embedding 384-dim. Decide provider según EMBED_PROVIDER."""
+    provider = EMBED_PROVIDER
+
+    if provider in ("local", "auto"):
+        vec = _embed_local(text)
+        if vec is not None:
+            return vec
+        if provider == "local":
+            raise RuntimeError("EMBED_PROVIDER=local pero sentence-transformers no está disponible")
+        # auto → falla local, sigue al fallback
+
+    if provider in ("hf_api", "auto"):
+        vec = _embed_hf_api(text)
+        if vec is not None:
+            return vec
+
+    raise RuntimeError(f"No se pudo generar embedding (provider={provider}, HF_TOKEN set: {bool(HF_TOKEN)})")
 
 
 def embed_to_pgvector(vec: list[float]) -> str:
     """Convierte lista de floats al formato textual que acepta pgvector: '[v1,v2,...]'."""
     return "[" + ",".join(f"{x:.6f}" for x in vec) + "]"
 
+
+# ---------------------------------------------------------------------------
+# Chat RAG con Minimax (o fallback determinístico)
+# ---------------------------------------------------------------------------
 
 SYSTEM_RAG = (
     "Eres un asistente para periodistas de investigación cívica en Perú. "
@@ -66,7 +144,6 @@ SYSTEM_RAG = (
 
 
 def build_rag_prompt(pregunta: str, chunks: list[dict]) -> str:
-    """Arma el user prompt con el contexto recuperado."""
     if not chunks:
         return (
             f"No hay informes de Contraloría indexados sobre esta obra.\n\n"
@@ -91,7 +168,6 @@ def build_rag_prompt(pregunta: str, chunks: list[dict]) -> str:
 
 
 def _stub_rag(pregunta: str, chunks: list[dict]) -> str:
-    """Respuesta degradada determinística cuando el LLM no está disponible."""
     if not chunks:
         return (
             "No tengo informes de Contraloría indexados sobre esta obra. "
@@ -103,16 +179,11 @@ def _stub_rag(pregunta: str, chunks: list[dict]) -> str:
     return (
         f"Encontré contenido relevante en {nro} informe(s) de Contraloría. "
         f"El servicio de respuesta automática está temporalmente degradado. "
-        f"Por favor consulta los PDFs originales listados en las fuentes para más detalle. "
-        f"\n\nDatos cruzados de MEF/Invierte.pe + Infobras/Contraloría."
+        f"Por favor consulta los PDFs originales listados en las fuentes para más detalle."
     )
 
 
 def chat_rag(pregunta: str, chunks: list[dict]) -> dict[str, Any]:
-    """Llama al LLM con el contexto. Fallback determinístico si falla.
-
-    Devuelve dict: provider, modelo, respuesta, tokens_input, tokens_output.
-    """
     provider = LLM_PROVIDER
 
     if provider == "minimax" and MINIMAX_API_KEY:

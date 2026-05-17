@@ -34,8 +34,6 @@ def get_conn() -> Iterator[Any]:
 
 def fetch_all(sql: str, params: tuple | dict | None = None) -> list[dict]:
     with pool.connection() as conn:
-        # Si no hay params, no pasamos nada para evitar que psycopg
-        # interprete '%' literales en el SQL como placeholders
         cur = conn.execute(sql, params) if params else conn.execute(sql)
         return cur.fetchall()
 

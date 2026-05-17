@@ -1,0 +1,30 @@
+@import 'tailwindcss';
+
+/*
+ * OBRAS CERCA — Paleta editorial cívica
+ * Fondo: Papel envejecido cálido (#FAF8F5)
+ * Texto: Carbón profundo (stone-900)
+ * Acento: Terracota/óxido (#9F5442) — señala sin alarmar
+ * Tipografía: serif para titulares (look ProPublica), sans para body
+ */
+
+@theme {
+  --color-paper: #faf8f5;
+  --color-terracotta: #9f5442;
+  --color-terracotta-soft: rgba(159, 84, 66, 0.1);
+  --color-terracotta-border: rgba(159, 84, 66, 0.25);
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Source Serif 4', 'Source Serif Pro', Georgia, 'Times New Roman', serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', Menlo, monospace;
+}
+
+html, body { background: var(--color-paper); color: #1c1917; }
+body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+
+/* Leaflet ajustes — fondo claro coherente con paper */
+.leaflet-container { background: #f5f3ef; }
+.leaflet-tile-pane { filter: saturate(0.85) brightness(1.02); }
+
+/* Líneas finas decorativas para layout editorial */
+hr { border: 0; border-top: 1px solid rgb(231 229 228); }

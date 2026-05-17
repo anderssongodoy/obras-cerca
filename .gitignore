@@ -4,7 +4,13 @@
 
 # --- Datos crudos descargados (pesados, regenerables) ---
 scrapers/data/
+legacy/scrapers/data/
 backend/scripts/cache/
+backend/data/
+
+# --- Referencia local v0 / Stitch (no se sube al repo) ---
+_v0_design/
+obras-cerca-design.zip
 
 # --- Variables de entorno y secretos ---
 .env

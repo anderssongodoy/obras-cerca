@@ -1,222 +1,246 @@
-"""Obras: listado con filtros geográficos + ficha + exportar caso CSV."""
+"""Endpoints de obras: listado, ficha con cruce de fuentes, verificación live, explicación IA, exportar."""
 from __future__ import annotations
 
-import csv
-import io
+import csv, io
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from ..db import fetch_all, fetch_one
+from ..db import fetch_all, fetch_one, get_conn
+from ..clients.mef import MEFClient
+from ..clients.infobras import InfobrasClient
+from ..llm import generar_obra
 
 router = APIRouter(prefix="/api/obras", tags=["obras"])
 
-# Haversine en SQL puro (radio_tierra = 6371000 m)
-HAVERSINE_SQL = (
+
+HAVERSINE = (
     "(2 * 6371000 * asin(sqrt("
-    "power(sin(radians((o.latitud - %s)/2)), 2) + "
-    "cos(radians(%s)) * cos(radians(o.latitud)) * "
-    "power(sin(radians((o.longitud - %s)/2)), 2)"
-    ")))"
+    "power(sin(radians((latitud - %s)/2)), 2) + "
+    "cos(radians(%s)) * cos(radians(latitud)) * "
+    "power(sin(radians((longitud - %s)/2)), 2))))"
 )
 
 
 @router.get("")
 def listar(
-    ubigeo: Optional[str] = Query(None, description="Filtro por distrito (ubigeo)"),
-    lat: Optional[float] = Query(None, description="Latitud para 'obras cerca de mí'"),
-    lon: Optional[float] = Query(None, description="Longitud para 'obras cerca de mí'"),
-    radio_m: int = Query(1000, ge=100, le=20000, description="Radio en metros (default 1km)"),
-    paralizadas: Optional[bool] = Query(None, description="Solo paralizadas (true) o no paralizadas (false)"),
-    clasificacion: Optional[str] = Query(None, description="vigente/dudosa/zombie"),
-    contratista_ruc: Optional[str] = Query(None),
-    entidad_id: Optional[int] = Query(None),
-    sector: Optional[str] = Query(None),
-    estado: Optional[str] = Query(None, description="Filtro por estado_ejecucion (LIKE)"),
-    q: Optional[str] = Query(None, description="Búsqueda libre por nombre de obra"),
+    ubigeo: Optional[str] = None,
+    lat: Optional[float] = None,
+    lon: Optional[float] = None,
+    radio_m: int = Query(2000, ge=100, le=20000),
+    paralizadas_wfs: Optional[bool] = None,
+    inactivas_mef: Optional[bool] = None,
+    con_saldos: Optional[bool] = None,
+    contratista_ruc: Optional[str] = None,
+    q: Optional[str] = None,
     limit: int = Query(200, ge=1, le=2000),
     offset: int = Query(0, ge=0),
 ) -> dict:
-    """Listado de obras con filtros combinables.
-
-    Para 'obras cerca de mí': pasa `lat` + `lon` + `radio_m` (Haversine en SQL).
-    """
-    where: list[str] = ["d.ambito_mvp"]
-    where_params: list = []
-
+    where = ["TRUE"]
+    params: list = []
     if ubigeo:
-        where.append("d.ubigeo = %s")
-        where_params.append(ubigeo)
-    if paralizadas is True:
-        where.append("o.existe_paralizacion")
-    elif paralizadas is False:
-        where.append("NOT o.existe_paralizacion")
-    if clasificacion:
-        where.append("o.clasificacion_paralizacion = %s::clasif_paralizacion")
-        where_params.append(clasificacion)
+        where.append("distrito_ubigeo = %s")
+        params.append(ubigeo)
+    if paralizadas_wfs:
+        where.append("estado_obra_wfs = 'Paralizada'")
+    if inactivas_mef:
+        where.append("estado_proyecto_mef = 'DESACTIVADO_PERMANENTE'")
+    if con_saldos:
+        where.append("es_saldo_obra")
     if contratista_ruc:
-        where.append("c.ruc = %s")
-        where_params.append(contratista_ruc)
-    if entidad_id:
-        where.append("o.entidad_id = %s")
-        where_params.append(entidad_id)
-    if sector:
-        where.append("o.sector ILIKE %s")
-        where_params.append(f"%{sector}%")
-    if estado:
-        where.append("o.estado_ejecucion ILIKE %s")
-        where_params.append(f"%{estado}%")
+        where.append("contratista_ruc = %s")
+        params.append(contratista_ruc)
     if q:
-        where.append("o.nombre ILIKE %s")
-        where_params.append(f"%{q}%")
+        where.append("(nombre_obra ILIKE %s OR nombre_inversion ILIKE %s)")
+        params += [f"%{q}%", f"%{q}%"]
 
-    geo_enabled = lat is not None and lon is not None
-    if geo_enabled:
-        where.append("o.latitud IS NOT NULL AND o.longitud IS NOT NULL")
-        where.append(f"{HAVERSINE_SQL} <= %s")
-        where_params += [lat, lat, lon, radio_m]
+    geo = lat is not None and lon is not None
+    if geo:
+        where.append("latitud IS NOT NULL AND longitud IS NOT NULL")
+        where.append(f"{HAVERSINE} <= %s")
+        params_geo_where = [lat, lat, lon, radio_m]
+    else:
+        params_geo_where = []
 
-    where_sql = " AND ".join(where) if where else "TRUE"
-
-    select_distancia = f"{HAVERSINE_SQL} AS distancia_m" if geo_enabled else "NULL::float AS distancia_m"
-    select_params: list = [lat, lat, lon] if geo_enabled else []
-
-    order = (
-        "distancia_m ASC NULLS LAST, o.existe_paralizacion DESC, o.id DESC"
-        if geo_enabled
-        else "o.existe_paralizacion DESC, o.codigo_infobras DESC"
-    )
+    where_sql = " AND ".join(where)
+    distancia_sql = f"{HAVERSINE} AS distancia_m" if geo else "NULL::float AS distancia_m"
+    params_select = [lat, lat, lon] if geo else []
+    order = ("distancia_m ASC, " if geo else "") + "id DESC"
 
     sql = f"""
-        SELECT
-            o.id, o.codigo_infobras, o.nombre, o.estado_ejecucion,
-            o.naturaleza, o.sector, o.fecha_inicio, o.fecha_fin_programada,
-            o.fecha_ultimo_avance,
-            o.avance_fisico_real, o.avance_fisico_programado,
-            o.porcentaje_ejecucion_financiera,
-            o.monto_contrato, o.monto_ejecutado,
-            o.existe_paralizacion, o.clasificacion_paralizacion::text AS clasificacion_paralizacion,
-            o.confirmada_contraloria_2025,
-            o.dias_paralizada_real, o.dias_sin_avance,
-            o.latitud, o.longitud, o.direccion, o.tipo_ubicacion,
-            e.nombre AS entidad_nombre,
-            c.ruc AS contratista_ruc, c.razon_social AS contratista_nombre,
-            d.distrito AS distrito_nombre, d.provincia, d.ubigeo AS distrito_ubigeo,
-            {select_distancia}
-        FROM obra o
-        JOIN distrito d ON d.id = o.distrito_id
-        LEFT JOIN entidad e ON e.id = o.entidad_id
-        LEFT JOIN contratista c ON c.id = o.contratista_id
+        SELECT *, {distancia_sql}
+        FROM v_obra_mvp
         WHERE {where_sql}
         ORDER BY {order}
         LIMIT %s OFFSET %s
     """
-    sql_params = tuple(select_params + where_params + [limit, offset])
-
-    count_sql = f"""
-        SELECT COUNT(*) AS total
-        FROM obra o
-        JOIN distrito d ON d.id = o.distrito_id
-        LEFT JOIN contratista c ON c.id = o.contratista_id
-        WHERE {where_sql}
-    """
-    total = fetch_one(count_sql, tuple(where_params))["total"]
-    rows = fetch_all(sql, sql_params)
+    total = fetch_one(
+        f"SELECT COUNT(*) AS t FROM v_obra_mvp WHERE {where_sql}",
+        tuple(params + params_geo_where),
+    )["t"]
+    rows = fetch_all(sql, tuple(params_select + params + params_geo_where + [limit, offset]))
     return {"total": total, "limit": limit, "offset": offset, "items": rows}
 
 
 @router.get("/{obra_id}")
 def ficha(obra_id: int) -> dict:
-    """Ficha completa de una obra (lo que se abre al click)."""
-    row = fetch_one("""
-        SELECT
-            o.*, o.clasificacion_paralizacion::text AS clasificacion_paralizacion,
-            e.nombre AS entidad_nombre, e.nivel_gobierno, e.sector AS entidad_sector,
-            c.ruc AS contratista_ruc, c.razon_social AS contratista_nombre,
-            sup.ruc AS supervisor_ruc, sup.razon_social AS supervisor_nombre,
-            d.distrito AS distrito_nombre, d.provincia, d.departamento, d.ubigeo AS distrito_ubigeo,
-            CASE WHEN o.codigo_infobras IS NOT NULL
-                 THEN 'https://infobras.contraloria.gob.pe/InfobrasWeb/Mapa/Sumario?ObraId=' || o.codigo_infobras
-            END AS infobras_url
-        FROM obra o
-        LEFT JOIN entidad e ON e.id = o.entidad_id
-        LEFT JOIN contratista c ON c.id = o.contratista_id
-        LEFT JOIN contratista sup ON sup.id = o.supervisor_id
-        JOIN distrito d ON d.id = o.distrito_id
-        WHERE o.id = %s
-    """, (obra_id,))
+    row = fetch_one("SELECT * FROM v_obra_ficha WHERE id = %s", (obra_id,))
     if not row:
-        raise HTTPException(404, "Obra no encontrada")
+        raise HTTPException(404, "obra no encontrada")
 
-    paralizacion = fetch_one("""
-        SELECT fecha_paralizacion, dias_paralizado, dias_paralizada_real,
-               causal, comentarios, avance_fisico_al_par, avance_fin_al_par,
-               confirmada_contraloria_2025
-        FROM obra_paralizacion
-        WHERE obra_id = %s
+    row["saldos_hijos"] = fetch_all("""
+        SELECT id, nobr_id, descripcion, avance_fisico_infobras, estado_obra_wfs,
+               numero_contrato, monto_contrato
+        FROM obra WHERE obra_padre_id = %s
+    """, (obra_id,))
+
+    row["procedimientos"] = fetch_all("""
+        SELECT ps.id, ps.nomenclatura, ps.objeto_contractual,
+               ps.fecha_buena_pro, ps.fecha_suscripcion,
+               ps.valor_referencial, ps.monto_contratado, ps.estado, ps.url_contrato_pdf,
+               c.ruc AS contratista_ruc, c.razon_social AS contratista
+        FROM procedimiento_seleccion ps
+        LEFT JOIN contratista c ON c.id = ps.contratista_id
+        WHERE ps.cui = %s
+        ORDER BY ps.fecha_buena_pro DESC NULLS LAST
+    """, (row["cui"],))
+
+    row["paralizaciones"] = fetch_all("""
+        SELECT fecha_paralizacion, fecha_reinicio, dias_paralizado, causal, estado
+        FROM paralizacion_oficial WHERE cui = %s
         ORDER BY fecha_paralizacion DESC NULLS LAST
-        LIMIT 1
-    """, (obra_id,))
-    row["paralizacion"] = paralizacion
+    """, (row["cui"],))
 
-    senales = fetch_all("""
-        SELECT id, tipo::text, titulo, explicacion, score, formula, evidencia, detectada_en
-        FROM senal_revision
-        WHERE obra_id = %s AND activa
-        ORDER BY score DESC NULLS LAST
+    row["informes_control"] = fetch_all("""
+        SELECT anio, nro_informe, titulo, tipo_servicio, modalidad,
+               fecha_publicacion, url_pdf_resumen, url_pdf_completo
+        FROM informe_control WHERE obra_id = %s
+        ORDER BY fecha_publicacion DESC NULLS LAST
     """, (obra_id,))
-    row["senales"] = senales
+
+    row["senales"] = fetch_all("""
+        SELECT tipo::text, titulo, resumen, score, formula, evidencia
+        FROM senal_revision
+        WHERE activa AND (obra_id = %s OR cui = %s)
+        ORDER BY score DESC NULLS LAST
+    """, (obra_id, row["cui"]))
 
     return row
 
 
+@router.get("/{obra_id}/verificar")
+def verificar_live(obra_id: int) -> dict:
+    """Cruce LIVE en tiempo real: pregunta a MEF + WFS + ficha pública AHORA mismo.
+
+    Útil para mostrar al jurado "miren, no es data vieja — estos números vienen de la API
+    oficial en este instante". No actualiza la BD, solo devuelve lo que ven los oficiales.
+    """
+    row = fetch_one("SELECT id, nobr_id, cui FROM obra WHERE id = %s", (obra_id,))
+    if not row:
+        raise HTTPException(404, "obra no encontrada")
+
+    mef = MEFClient()
+    inf = InfobrasClient()
+
+    det = mef.trae_det_inv_ssi(row["cui"])
+    nobrs = mef.ver_info_obras2(row["cui"])
+    paral = mef.trae_lista_paraliza_publico(row["cui"])
+    contratos = mef.trae_contrato_seace_dwh(row["cui"])
+
+    wfs = inf.wfs_obra(row["nobr_id"])
+    ficha_inf = inf.ficha_obra(row["nobr_id"])
+    informes = inf.informes_control(row["nobr_id"])
+
+    return {
+        "obra_id": obra_id, "nobr_id": row["nobr_id"], "cui": row["cui"],
+        "fuentes": {
+            "mef_invierte_pe":  det,
+            "mef_nobr_vinculados": [{"nobr": x.get("NOBR_ID") or x.get("CDP1_CODIGO"),
+                                       "modal": x.get("COPA_DESCRI"),
+                                       "descripcion": x.get("COBR_DESCRI")} for x in nobrs],
+            "mef_paralizaciones": paral,
+            "seace_contratos": contratos,
+            "infobras_wfs": wfs,
+            "infobras_ficha_publica": ficha_inf,
+            "contraloria_informes": informes,
+        },
+        "urls": {
+            "mef_ssi": f"https://ofi5.mef.gob.pe/ssi/Ssi/Index?tipo=2&codigo={row['cui']}",
+            "infobras_ficha": f"https://infobras.contraloria.gob.pe/InfobrasWeb/Mapa/Sumario?ObraId={row['nobr_id']}",
+            "infobras_informes": f"https://infobras.contraloria.gob.pe/InfobrasWeb/Mapa/InformeControl?obraId={row['nobr_id']}",
+        },
+    }
+
+
+@router.get("/{obra_id}/explicacion")
+def explicacion(obra_id: int, refresh: bool = Query(False)) -> dict:
+    if not refresh:
+        cached = fetch_one("""
+            SELECT provider, modelo, texto, tokens_input, tokens_output, generado_en
+            FROM explicacion_ia WHERE entidad_tipo='obra' AND entidad_id=%s AND audiencia='ciudadano'
+        """, (obra_id,))
+        if cached:
+            return {"cached": True, **cached}
+
+    base = fetch_one("SELECT * FROM v_obra_ficha WHERE id = %s", (obra_id,))
+    if not base:
+        raise HTTPException(404, "obra no encontrada")
+
+    saldos = fetch_one("SELECT COUNT(*) AS n FROM obra WHERE obra_padre_id = %s", (obra_id,))["n"]
+    n_inf = fetch_one("SELECT COUNT(*) AS n FROM informe_control WHERE obra_id = %s", (obra_id,))["n"]
+
+    hechos = {
+        "nombre": base.get("nombre_obra") or base.get("nombre_inversion"),
+        "distrito": base.get("distrito_nombre"),
+        "entidad": base.get("entidad_nombre"),
+        "estado_mef": (base.get("estado_proyecto_mef") or "").upper() if base.get("estado_proyecto_mef") else None,
+        "estado_wfs": base.get("estado_obra_wfs"),
+        "avance_mef": float(base["avance_fisico_mef"]) if base.get("avance_fisico_mef") is not None else None,
+        "avance_infobras": float(base["avance_fisico_infobras"]) if base.get("avance_fisico_infobras") is not None else None,
+        "sobrecosto_pct": float(base["sobrecosto_pct"]) if base.get("sobrecosto_pct") is not None else None,
+        "monto_viable": float(base["mto_viable"]) if base.get("mto_viable") else None,
+        "costo_actualizado": float(base["costo_actualizado"]) if base.get("costo_actualizado") else None,
+        "saldos_hijos": saldos,
+        "informes_control": n_inf,
+    }
+
+    gen = generar_obra(hechos)
+    with get_conn() as conn:
+        conn.execute("""
+            INSERT INTO explicacion_ia
+                (entidad_tipo, entidad_id, audiencia, provider, modelo, texto, tokens_input, tokens_output)
+            VALUES ('obra', %s, 'ciudadano', %s, %s, %s, %s, %s)
+            ON CONFLICT (entidad_tipo, entidad_id, audiencia) DO UPDATE SET
+                provider=EXCLUDED.provider, modelo=EXCLUDED.modelo, texto=EXCLUDED.texto,
+                tokens_input=EXCLUDED.tokens_input, tokens_output=EXCLUDED.tokens_output,
+                generado_en=NOW()
+        """, (obra_id, gen["provider"], gen["modelo"], gen["texto"], gen["tokens_input"], gen["tokens_output"]))
+    return {"cached": False, **gen, "hechos_usados": hechos}
+
+
 @router.get("/{obra_id}/exportar")
-def exportar_caso(obra_id: int):
-    """Descarga CSV con la evidencia auditable de la obra y sus señales."""
-    obra = fetch_one("""
-        SELECT o.id, o.codigo_infobras, o.nombre, o.estado_ejecucion, o.naturaleza,
-               o.sector, o.fecha_inicio, o.fecha_fin_programada, o.fecha_ultimo_avance,
-               o.avance_fisico_real, o.avance_fisico_programado, o.porcentaje_ejecucion_financiera,
-               o.monto_contrato, o.monto_ejecutado,
-               o.existe_paralizacion, o.clasificacion_paralizacion::text AS clasificacion_paralizacion,
-               o.confirmada_contraloria_2025, o.dias_paralizada_real, o.dias_sin_avance,
-               o.latitud, o.longitud, o.direccion,
-               e.nombre AS entidad,
-               c.ruc AS contratista_ruc, c.razon_social AS contratista,
-               d.distrito, d.provincia, d.departamento,
-               CASE WHEN o.codigo_infobras IS NOT NULL
-                    THEN 'https://infobras.contraloria.gob.pe/InfobrasWeb/Mapa/Sumario?ObraId=' || o.codigo_infobras
-               END AS fuente_oficial_infobras
-        FROM obra o
-        LEFT JOIN entidad e ON e.id = o.entidad_id
-        LEFT JOIN contratista c ON c.id = o.contratista_id
-        JOIN distrito d ON d.id = o.distrito_id
-        WHERE o.id = %s
-    """, (obra_id,))
+def exportar_csv(obra_id: int):
+    obra = fetch_one("SELECT * FROM v_obra_ficha WHERE id = %s", (obra_id,))
     if not obra:
-        raise HTTPException(404, "Obra no encontrada")
+        raise HTTPException(404, "obra no encontrada")
 
     buf = io.StringIO()
-    writer = csv.writer(buf)
-    writer.writerow(list(obra.keys()))
-    writer.writerow(list(obra.values()))
-    buf.write("\n")
-    writer.writerow(["--- senales activas ---"])
-    senales = fetch_all("""
-        SELECT tipo::text, titulo, explicacion, score, formula, evidencia, detectada_en
-        FROM senal_revision WHERE obra_id = %s AND activa
-        ORDER BY score DESC
-    """, (obra_id,))
-    if senales:
-        writer.writerow(list(senales[0].keys()))
-        for s in senales:
-            writer.writerow(list(s.values()))
-
+    w = csv.writer(buf)
+    w.writerow(list(obra.keys())); w.writerow(list(obra.values()))
+    w.writerow([])
+    w.writerow(["--- saldos hijos ---"])
+    saldos = fetch_all("SELECT * FROM obra WHERE obra_padre_id = %s", (obra_id,))
+    if saldos:
+        w.writerow(list(saldos[0].keys()))
+        for s in saldos: w.writerow(list(s.values()))
+    w.writerow([])
+    w.writerow(["--- informes de control ---"])
+    inf = fetch_all("SELECT * FROM informe_control WHERE obra_id = %s", (obra_id,))
+    if inf:
+        w.writerow(list(inf[0].keys()))
+        for i in inf: w.writerow(list(i.values()))
     buf.seek(0)
-    fname = f"obra_{obra['codigo_infobras'] or obra_id}_evidencia.csv"
-    return StreamingResponse(
-        iter([buf.getvalue()]),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
-    )
+    fname = f"obra_{obra.get('nobr_id', obra_id)}_evidencia.csv"
+    return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv; charset=utf-8",
+                             headers={"Content-Disposition": f'attachment; filename="{fname}"'})

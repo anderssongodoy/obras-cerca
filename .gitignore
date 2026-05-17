@@ -7,7 +7,7 @@ scrapers/data/
 legacy/scrapers/data/
 backend/scripts/cache/
 backend/backend/data/
-
+backend/data/
 # --- Referencia local v0 / Stitch (no se sube al repo) ---
 _v0_design/
 obras-cerca-design.zip

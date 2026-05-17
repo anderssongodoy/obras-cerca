@@ -1,0 +1,29 @@
+<div class="layout">
+  <app-header-stats></app-header-stats>
+
+  <div class="main-content">
+    <!-- Panel izquierdo: señales / ficha -->
+    <aside class="side-panel">
+      <ng-container [ngSwitch]="panelActivo">
+        <app-senales-panel
+          *ngSwitchCase="'senales'"
+          (seleccionar)="abrirFicha($event)"
+        ></app-senales-panel>
+
+        <app-ficha-obra
+          *ngSwitchCase="'ficha'"
+          [obraId]="obraActivaId"
+          (cerrar)="cerrarFicha()"
+        ></app-ficha-obra>
+      </ng-container>
+    </aside>
+
+    <!-- Mapa central -->
+    <section class="map-section">
+      <app-mapa
+        [destacarObraId]="obraActivaId"
+        (obraSeleccionada)="abrirFicha($event)"
+      ></app-mapa>
+    </section>
+  </div>
+</div>

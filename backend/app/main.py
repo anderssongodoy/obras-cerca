@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import ALLOWED_ORIGINS, APP_ENV
 from .db import close_pool, open_pool
-from .routers import admin, contratistas, distritos, health, obras, senales
+from .routers import admin, chat, contratistas, distritos, health, obras, senales
 
 
 @asynccontextmanager
@@ -54,6 +54,7 @@ app.include_router(obras.router)
 app.include_router(contratistas.router)
 app.include_router(senales.router)
 app.include_router(admin.router)
+app.include_router(chat.router)
 
 
 @app.get("/", tags=["meta"])

@@ -63,6 +63,19 @@ CREATE TABLE IF NOT EXISTS chat_qa_cache (
 
 CREATE INDEX IF NOT EXISTS chat_qa_cache_obra_idx ON chat_qa_cache(obra_id);
 
-COMMENT ON TABLE documento_chunk IS 'Chunks de PDFs de informes de Contraloría con embeddings Minimax. Base del chat RAG.';
+COMMENT ON TABLE documento_chunk IS 'Chunks de PDFs de informes de Contraloría con embeddings. Base del chat RAG.';
 COMMENT ON COLUMN documento_chunk.embedding IS 'Vector de 384 dim — paraphrase-multilingual-MiniLM-L12-v2 (sentence-transformers local).';
 COMMENT ON TABLE chat_qa_cache IS 'Cache de Q&A para no quemar tokens en preguntas repetidas durante la demo.';
+
+-- Si la migración se corre como superuser (postgres), las tablas quedan con owner postgres.
+-- Garantizamos que el user de la app sea owner para que pueda INSERT/UPDATE/DELETE.
+-- (No-op si ya es el owner.)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'obrascerca_app') THEN
+        EXECUTE 'ALTER TABLE documento_chunk OWNER TO obrascerca_app';
+        EXECUTE 'ALTER TABLE chat_qa_cache OWNER TO obrascerca_app';
+        EXECUTE 'ALTER SEQUENCE documento_chunk_id_seq OWNER TO obrascerca_app';
+        EXECUTE 'ALTER SEQUENCE chat_qa_cache_id_seq OWNER TO obrascerca_app';
+    END IF;
+END $$;

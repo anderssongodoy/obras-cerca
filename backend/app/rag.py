@@ -15,6 +15,7 @@ Si todo falla, fallback determinístico para no dejar muda la UI.
 from __future__ import annotations
 
 import logging
+import re
 from threading import Lock
 from typing import Any
 
@@ -202,6 +203,11 @@ def chat_rag(pregunta: str, chunks: list[dict]) -> dict[str, Any]:
                 ],
             )
             texto = (resp.choices[0].message.content or "").strip()
+            # Minimax M2.7 es un modelo de razonamiento — devuelve <think>...</think>
+            # antes de la respuesta final. Lo quitamos para que el usuario no lo vea.
+            texto = re.sub(r"<think>.*?</think>\s*", "", texto, flags=re.DOTALL).strip()
+            # Quitar headings markdown sueltos tipo "## Respuesta" que el modelo agrega
+            texto = re.sub(r"^#+\s*Respuesta\s*\n+", "", texto, flags=re.IGNORECASE).strip()
             usage = getattr(resp, "usage", None)
             return {
                 "provider": "minimax",

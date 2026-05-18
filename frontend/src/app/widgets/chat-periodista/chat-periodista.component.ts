@@ -3,7 +3,6 @@ import {
   Component,
   ElementRef,
   ViewChild,
-  computed,
   effect,
   inject,
   input,
@@ -13,29 +12,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 
-/**
- * Componente standalone para chat RAG sobre informes de Contraloría.
- *
- * NO toca ningún archivo del frontend principal — vive aislado en widgets/.
- *
- * Para usarlo, tu compañero (o tú) importas el componente donde quieras:
- *
- *   import { ChatPeriodistaComponent } from './widgets/chat-periodista/chat-periodista.component';
- *
- *   @Component({
- *     // ...
- *     imports: [..., ChatPeriodistaComponent],
- *     template: `... <app-chat-periodista [obraId]="obra.id" /> ...`,
- *   })
- *
- * El componente:
- *   - Detecta automáticamente la URL del API (localhost en dev, api.obrascerca.trinitylabs.app en prod)
- *   - Verifica si la obra tiene informes indexados (oculta el chat si no)
- *   - Carga 4 preguntas sugeridas contextuales (chips clicables)
- *   - Permite preguntas libres con input
- *   - Muestra respuesta + fuentes citables con link al PDF
- *   - Maneja loading, errores, y degradación graceful
- */
 interface Fuente {
   informe_id: number;
   nro_informe: string;
@@ -90,155 +66,322 @@ function resolveApiBase(): string {
   imports: [CommonModule, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="border border-stone-200 rounded-lg bg-paper overflow-hidden">
+    @if (health() && health()!.puede_preguntar) {
 
-      <!-- HEADER -->
-      <header class="px-5 py-4 border-b border-stone-200 bg-white flex items-center justify-between gap-3">
-        <div class="flex items-center gap-2 min-w-0">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" class="text-terracotta shrink-0">
+      <!-- FAB flotante -->
+      @if (!isOpen()) {
+        <button
+          type="button"
+          class="fab"
+          (click)="open()"
+          aria-label="Abrir chat con IA"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
           </svg>
-          <h3 class="font-serif text-base text-stone-900 leading-tight">
-            Preguntar a los informes
-          </h3>
-        </div>
-        <span *ngIf="health()?.puede_preguntar" class="text-[10px] uppercase tracking-wide text-stone-500 font-medium shrink-0">
-          {{ health()?.informes_indexados }} informe{{ (health()?.informes_indexados ?? 0) === 1 ? '' : 's' }}
-        </span>
-      </header>
+          <span class="fab-label">Preguntar a la IA</span>
+        </button>
+      }
 
-      <!-- ESTADO: NO DISPONIBLE -->
-      <div *ngIf="health() && !health()!.puede_preguntar" class="px-5 py-8 text-center">
-        <p class="text-sm text-stone-500 mb-1">
-          Esta obra todavía no tiene informes de Contraloría indexados para consulta.
-        </p>
-        <p class="text-xs text-stone-400">
-          Cuando estén indexados, podrás preguntar sobre ellos acá.
-        </p>
-      </div>
+      <!-- Modal flotante de chat -->
+      @if (isOpen()) {
+        <div class="chat-window" role="dialog" aria-label="Chat con IA sobre informes de Contraloría">
 
-      <!-- ESTADO: CARGANDO META -->
-      <div *ngIf="!health()" class="px-5 py-6 text-center">
-        <p class="text-sm text-stone-400">Cargando…</p>
-      </div>
-
-      <!-- CHAT (sólo si puede_preguntar) -->
-      <div *ngIf="health()?.puede_preguntar">
-
-        <!-- SUGERENCIAS (solo si no hay historial) -->
-        <div *ngIf="historial().length === 0 && sugerencias().length > 0" class="px-5 py-4 border-b border-stone-100">
-          <p class="text-[10px] uppercase tracking-wide text-stone-500 font-medium mb-2.5">
-            Preguntas sugeridas
-          </p>
-          <div class="flex flex-col gap-1.5">
-            <button
-              *ngFor="let s of sugerencias()"
-              type="button"
-              (click)="enviarSugerencia(s)"
-              [disabled]="enviando()"
-              class="text-left px-3 py-2 text-sm text-stone-700 bg-stone-50 hover:bg-stone-100 border border-stone-200 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-              {{ s }}
+          <header class="chat-header">
+            <div class="chat-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="chat-icon">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+              </svg>
+              <div>
+                <div class="chat-name">Preguntar a Contraloría</div>
+                <div class="chat-sub">{{ health()!.informes_indexados }} informe{{ health()!.informes_indexados === 1 ? '' : 's' }} indexado{{ health()!.informes_indexados === 1 ? '' : 's' }}</div>
+              </div>
+            </div>
+            <button type="button" class="chat-close" (click)="close()" aria-label="Cerrar chat">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>
+          </header>
+
+          <div #scroller class="chat-body">
+            @if (historial().length === 0 && sugerencias().length > 0) {
+              <div class="sugerencias">
+                <p class="sugerencias-label">Preguntas sugeridas</p>
+                @for (s of sugerencias(); track s) {
+                  <button type="button" class="chip" (click)="enviarSugerencia(s)" [disabled]="enviando()">{{ s }}</button>
+                }
+              </div>
+            }
+
+            @for (qa of historial(); track $index) {
+              <article class="qa">
+                <div class="msg msg-user">
+                  <div class="bubble bubble-user">{{ qa.pregunta }}</div>
+                </div>
+                <div class="msg msg-ai">
+                  <div class="bubble bubble-ai">
+                    @if (qa.loading) {
+                      <div class="typing">
+                        <span></span><span></span><span></span>
+                        <em>Buscando en los informes…</em>
+                      </div>
+                    } @else if (qa.error) {
+                      <span class="msg-error">⚠ {{ qa.error }}</span>
+                    } @else {
+                      <div class="msg-text">{{ qa.respuesta }}</div>
+                      @if (qa.cache) {
+                        <div class="msg-meta">Respuesta cacheada</div>
+                      }
+                      @if (qa.fuentes.length > 0) {
+                        <div class="fuentes">
+                          <p class="fuentes-label">Fuentes</p>
+                          @for (f of dedupFuentes(qa.fuentes); track f) {
+                            <a *ngIf="f.url_pdf" [href]="f.url_pdf" target="_blank" rel="noopener" class="fuente-link">
+                              Informe {{ f.nro_informe }}<span *ngIf="f.pagina">, pág. {{ f.pagina }}</span>
+                            </a>
+                          }
+                        </div>
+                      }
+                    }
+                  </div>
+                </div>
+              </article>
+            }
           </div>
-        </div>
 
-        <!-- HISTORIAL -->
-        <div #scroller class="max-h-[420px] overflow-y-auto px-5 py-4 space-y-5" [class.border-b]="historial().length > 0" [class.border-stone-100]="historial().length > 0">
-          <article *ngFor="let qa of historial(); trackBy: trackByIdx" class="space-y-2">
-
-            <!-- Pregunta del periodista -->
-            <div class="flex justify-end">
-              <div class="bg-stone-900 text-stone-50 rounded-lg rounded-br-sm px-3.5 py-2 text-sm max-w-[88%]">
-                {{ qa.pregunta }}
-              </div>
-            </div>
-
-            <!-- Respuesta del agente -->
-            <div class="flex">
-              <div class="bg-stone-50 border border-stone-200 rounded-lg rounded-bl-sm px-3.5 py-2.5 max-w-[92%]">
-                <!-- Loading -->
-                <div *ngIf="qa.loading" class="flex items-center gap-2 text-xs text-stone-500">
-                  <span class="inline-block w-1.5 h-1.5 bg-stone-400 rounded-full animate-pulse"></span>
-                  <span class="inline-block w-1.5 h-1.5 bg-stone-400 rounded-full animate-pulse" style="animation-delay:0.2s"></span>
-                  <span class="inline-block w-1.5 h-1.5 bg-stone-400 rounded-full animate-pulse" style="animation-delay:0.4s"></span>
-                  <span class="ml-1">Buscando en los informes…</span>
-                </div>
-
-                <!-- Error -->
-                <div *ngIf="qa.error" class="text-sm text-terracotta">
-                  ⚠ {{ qa.error }}
-                </div>
-
-                <!-- Respuesta exitosa -->
-                <div *ngIf="!qa.loading && !qa.error">
-                  <p class="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap">{{ qa.respuesta }}</p>
-
-                  <!-- Metadata -->
-                  <div *ngIf="qa.cache || qa.provider === 'fallback' || qa.provider === 'stub'"
-                       class="mt-2 text-[10px] text-stone-400 italic">
-                    <span *ngIf="qa.cache">Respuesta cacheada</span>
-                    <span *ngIf="qa.provider === 'fallback' || qa.provider === 'stub'">
-                      Respuesta degradada (el redactor automático no respondió)
-                    </span>
-                  </div>
-
-                  <!-- Fuentes -->
-                  <div *ngIf="qa.fuentes && qa.fuentes.length > 0" class="mt-3 pt-2.5 border-t border-stone-200">
-                    <p class="text-[10px] uppercase tracking-wide text-stone-500 font-medium mb-1.5">
-                      Fuentes ({{ qa.fuentes.length }})
-                    </p>
-                    <ul class="space-y-1">
-                      <li *ngFor="let f of dedupFuentes(qa.fuentes)" class="text-xs">
-                        <a *ngIf="f.url_pdf" [href]="f.url_pdf" target="_blank" rel="noopener"
-                           class="text-stone-700 hover:text-terracotta underline-offset-2 hover:underline">
-                          Informe {{ f.nro_informe }}<span *ngIf="f.pagina">, pág. {{ f.pagina }}</span>
-                        </a>
-                        <span *ngIf="!f.url_pdf" class="text-stone-600">
-                          Informe {{ f.nro_informe }}<span *ngIf="f.pagina">, pág. {{ f.pagina }}</span>
-                        </span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </article>
-        </div>
-
-        <!-- INPUT -->
-        <form (ngSubmit)="preguntar()" class="px-5 py-3 border-t border-stone-100 bg-white">
-          <div class="flex gap-2">
+          <form class="chat-input" (ngSubmit)="preguntar()">
             <input
               type="text"
               [(ngModel)]="preguntaInput"
               name="pregunta"
               [disabled]="enviando()"
-              placeholder="Pregunta sobre los informes…"
+              placeholder="Escribe tu pregunta…"
               maxlength="500"
               autocomplete="off"
-              class="flex-1 px-3 py-2 text-sm border border-stone-300 rounded focus:outline-none focus:border-stone-700 disabled:opacity-50 disabled:bg-stone-50"
             />
-            <button
-              type="submit"
-              [disabled]="enviando() || !preguntaInput.trim()"
-              class="px-3 py-2 bg-stone-900 text-stone-50 text-sm rounded hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5">
-              <svg *ngIf="!enviando()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
-              </svg>
-              <svg *ngIf="enviando()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="animate-spin">
-                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-              </svg>
-              <span class="hidden sm:inline">Preguntar</span>
+            <button type="submit" [disabled]="enviando() || !preguntaInput.trim()" aria-label="Enviar">
+              @if (!enviando()) {
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+              } @else {
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              }
             </button>
-          </div>
-          <p class="text-[10px] text-stone-400 mt-1.5">
-            Respuestas basadas en informes oficiales de Contraloría. Las fuentes están al final de cada respuesta.
-          </p>
-        </form>
-      </div>
+          </form>
 
-    </section>
+        </div>
+      }
+    }
+  `,
+  styles: `
+    :host { display: contents; }
+
+    .fab {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9000;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 20px;
+      background: #9f5442;
+      color: #fafaf9;
+      border: none;
+      border-radius: 999px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .fab:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24); }
+    .fab svg { flex-shrink: 0; }
+    @media (max-width: 640px) {
+      .fab { padding: 14px; }
+      .fab .fab-label { display: none; }
+    }
+
+    .chat-window {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: min(380px, calc(100vw - 32px));
+      height: min(560px, calc(100vh - 100px));
+      max-height: 80vh;
+      z-index: 9000;
+      display: flex;
+      flex-direction: column;
+      background: #faf8f5;
+      border: 1px solid #d6d3d1;
+      border-radius: 16px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
+      overflow: hidden;
+      animation: chatIn 0.18s ease-out;
+    }
+    @keyframes chatIn {
+      from { opacity: 0; transform: translateY(12px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .chat-header {
+      padding: 14px 16px;
+      background: #1c1917;
+      color: #fafaf9;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .chat-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .chat-icon { color: #c4926a; flex-shrink: 0; }
+    .chat-name { font-size: 14px; font-weight: 600; line-height: 1.2; }
+    .chat-sub { font-size: 11px; opacity: 0.65; margin-top: 2px; }
+    .chat-close {
+      background: none;
+      border: none;
+      color: #fafaf9;
+      cursor: pointer;
+      padding: 4px;
+      opacity: 0.7;
+      transition: opacity 0.15s;
+    }
+    .chat-close:hover { opacity: 1; }
+
+    .chat-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .sugerencias { display: flex; flex-direction: column; gap: 8px; }
+    .sugerencias-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #78716c;
+      font-weight: 600;
+      margin: 0 0 4px;
+    }
+    .chip {
+      text-align: left;
+      padding: 10px 12px;
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      color: #1c1917;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .chip:hover { background: #f5f5f4; border-color: #9f5442; }
+    .chip:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .qa { display: flex; flex-direction: column; gap: 6px; }
+    .msg { display: flex; }
+    .msg-user { justify-content: flex-end; }
+    .msg-ai { justify-content: flex-start; }
+
+    .bubble {
+      max-width: 86%;
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .bubble-user {
+      background: #1c1917;
+      color: #fafaf9;
+      border-bottom-right-radius: 4px;
+    }
+    .bubble-ai {
+      background: #fff;
+      color: #1c1917;
+      border: 1px solid #e5e5e5;
+      border-bottom-left-radius: 4px;
+    }
+    .msg-text { white-space: pre-wrap; }
+    .msg-meta { margin-top: 6px; font-size: 10px; color: #a8a29e; font-style: italic; }
+    .msg-error { color: #b00; font-size: 13px; }
+
+    .typing { display: flex; align-items: center; gap: 4px; color: #78716c; font-size: 12px; }
+    .typing span {
+      width: 6px; height: 6px; background: #a8a29e; border-radius: 50%;
+      animation: typing 1s infinite;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.15s; }
+    .typing span:nth-child(3) { animation-delay: 0.3s; }
+    .typing em { font-style: normal; margin-left: 6px; }
+    @keyframes typing {
+      0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+      30% { opacity: 1; transform: translateY(-3px); }
+    }
+
+    .fuentes {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #e5e5e5;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .fuentes-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #78716c;
+      font-weight: 600;
+      margin: 0;
+    }
+    .fuente-link {
+      font-size: 11px;
+      color: #57534e;
+      text-decoration: none;
+      padding: 2px 0;
+    }
+    .fuente-link:hover { color: #9f5442; text-decoration: underline; }
+
+    .chat-input {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+      border-top: 1px solid #e5e5e5;
+      background: #fff;
+    }
+    .chat-input input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1px solid #d6d3d1;
+      border-radius: 999px;
+      font-family: inherit;
+      font-size: 13px;
+      color: #1c1917;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .chat-input input:focus { border-color: #9f5442; }
+    .chat-input input:disabled { opacity: 0.5; background: #f5f5f4; }
+    .chat-input button {
+      width: 40px;
+      height: 40px;
+      background: #9f5442;
+      color: #fafaf9;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, opacity 0.15s;
+      flex-shrink: 0;
+    }
+    .chat-input button:hover:not(:disabled) { background: #8a4738; }
+    .chat-input button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   `,
 })
 export class ChatPeriodistaComponent {
@@ -249,12 +392,11 @@ export class ChatPeriodistaComponent {
   private http = inject(HttpClient);
   private apiBase = resolveApiBase();
 
+  protected isOpen = signal<boolean>(false);
   protected health = signal<HealthResponse | null>(null);
   protected sugerencias = signal<string[]>([]);
   protected historial = signal<QA[]>([]);
   protected enviando = signal<boolean>(false);
-
-  // Bound al input vía ngModel — no es signal porque ngModel necesita property simple
   protected preguntaInput = '';
 
   constructor() {
@@ -265,9 +407,8 @@ export class ChatPeriodistaComponent {
       }
     });
 
-    // Auto-scroll cuando se agrega al historial
     effect(() => {
-      const _ = this.historial(); // dep tracking
+      this.historial();
       queueMicrotask(() => {
         const el = this.scrollerRef?.nativeElement;
         if (el) el.scrollTop = el.scrollHeight;
@@ -275,12 +416,9 @@ export class ChatPeriodistaComponent {
     });
   }
 
-  protected trackByIdx(i: number) { return i; }
+  protected open() { this.isOpen.set(true); }
+  protected close() { this.isOpen.set(false); }
 
-  /**
-   * Quita fuentes duplicadas por (informe_id, pagina) — el vector search puede devolver
-   * varios chunks de la misma página, no necesitamos repetir el link.
-   */
   protected dedupFuentes(fuentes: Fuente[]): Fuente[] {
     const seen = new Set<string>();
     const out: Fuente[] = [];
@@ -304,13 +442,7 @@ export class ChatPeriodistaComponent {
     if (!pregunta || this.enviando()) return;
 
     this.enviando.set(true);
-    const placeholder: QA = {
-      pregunta,
-      respuesta: '',
-      fuentes: [],
-      loading: true,
-    };
-    this.historial.update(h => [...h, placeholder]);
+    this.historial.update(h => [...h, { pregunta, respuesta: '', fuentes: [], loading: true }]);
     this.preguntaInput = '';
 
     this.http
@@ -336,18 +468,12 @@ export class ChatPeriodistaComponent {
         },
         error: (err) => {
           const msg =
-            err?.status === 404
-              ? 'Esta obra no existe en el sistema.'
-              : err?.status === 422
-              ? 'La pregunta es muy corta o muy larga.'
-              : 'No se pudo procesar la pregunta. Reintentá en un momento.';
+            err?.status === 404 ? 'Esta obra no existe en el sistema.'
+            : err?.status === 422 ? 'La pregunta es muy corta o muy larga.'
+            : 'No se pudo procesar la pregunta. Intenta de nuevo.';
           this.historial.update(h => {
             const copy = [...h];
-            copy[copy.length - 1] = {
-              ...copy[copy.length - 1],
-              loading: false,
-              error: msg,
-            };
+            copy[copy.length - 1] = { ...copy[copy.length - 1], loading: false, error: msg };
             return copy;
           });
           this.enviando.set(false);
@@ -360,12 +486,7 @@ export class ChatPeriodistaComponent {
       .get<HealthResponse>(`${this.apiBase}/api/obras/${obraId}/preguntar/health`)
       .subscribe({
         next: (h) => this.health.set(h),
-        error: () => this.health.set({
-          obra_id: obraId,
-          chunks_indexados: 0,
-          informes_indexados: 0,
-          puede_preguntar: false,
-        }),
+        error: () => this.health.set({ obra_id: obraId, chunks_indexados: 0, informes_indexados: 0, puede_preguntar: false }),
       });
 
     this.http

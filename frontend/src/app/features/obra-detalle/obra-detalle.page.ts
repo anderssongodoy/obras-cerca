@@ -192,17 +192,13 @@ function resolveApiBase(): string {
           </section>
         }
 
-        <section class="chat-section">
-          <h2>Preguntar a los informes de Contraloría</h2>
-          <p class="chat-intro">
-            Pregúntale a la IA sobre los informes de Contraloría de esta obra.
-            Las respuestas citan el informe, número y página.
-          </p>
-          <app-chat-periodista [obraId]="o.id" />
-        </section>
-
       }
     </main>
+
+    <!-- FAB flotante del chat (se muestra solo si hay obra cargada) -->
+    @if (obra(); as o) {
+      <app-chat-periodista [obraId]="o.id" />
+    }
   `,
   styles: `
     .page { max-width: 920px; margin: 0 auto; padding: 24px 20px 60px; }

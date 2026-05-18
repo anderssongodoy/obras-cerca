@@ -7,18 +7,6 @@
     <app-icon name="arrow_forward" />
   </a>
 
-  @if (obra().urlInfobras) {
-    <a
-      class="btn-ver-fuente"
-      [href]="obra().urlInfobras!"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      <span>Ver en Infobras</span>
-      <app-icon name="open_in_new" />
-    </a>
-  }
-
   <div class="fuente">
     <app-icon name="source" />
     <span>Fuente: <strong>{{ obra().fuente }}</strong></span>

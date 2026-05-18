@@ -1,0 +1,52 @@
+@if (visible()) {
+  <div class="permission-overlay" role="dialog" aria-modal="true" aria-labelledby="perm-title">
+    <div class="permission-modal">
+      <svg
+        class="permission-modal__icon"
+        xmlns="http://www.w3.org/2000/svg"
+        width="48"
+        height="48"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <path
+          fill="var(--state-informativo)"
+          d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
+        />
+      </svg>
+
+      <h2 id="perm-title" class="permission-modal__title">Ver obras cerca tuyo</h2>
+
+      <p class="permission-modal__copy">
+        Permití el acceso a tu ubicación para mostrarte las obras de tu distrito.
+        No guardamos tu ubicación en ningún servidor.
+      </p>
+
+      <div class="permission-modal__actions">
+        <button
+          #allowBtn
+          type="button"
+          class="permission-modal__btn permission-modal__btn--primary"
+          [disabled]="status() === 'requesting'"
+          [attr.aria-disabled]="status() === 'requesting'"
+          (click)="onAllow()"
+        >
+          @if (status() === 'requesting') {
+            <span class="permission-modal__spinner" aria-hidden="true"></span>
+            Solicitando...
+          } @else {
+            Permitir ubicación
+          }
+        </button>
+
+        <button
+          type="button"
+          class="permission-modal__btn permission-modal__btn--ghost"
+          (click)="onSkip()"
+        >
+          Ahora no
+        </button>
+      </div>
+    </div>
+  </div>
+}

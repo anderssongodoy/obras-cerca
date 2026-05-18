@@ -110,6 +110,54 @@ export class MapService {
     this.map?.flyTo(CENTER_CALLAO, ZOOM_DEFAULT, { duration: 1.2 });
   }
 
+  flyTo(lat: number, lon: number, zoom?: number): void {
+    this.map?.flyTo([lat, lon], zoom ?? ZOOM_DEFAULT, { duration: 1.0 });
+  }
+
+  private userMarker: L.CircleMarker | null = null;
+  private radiusCircle: L.Circle | null = null;
+
+  syncRadiusCircle(lat: number, lon: number, radiusM: number): void {
+    if (!this.map) return;
+    if (this.radiusCircle) {
+      this.radiusCircle.setLatLng([lat, lon]);
+      this.radiusCircle.setRadius(radiusM);
+    } else {
+      this.radiusCircle = L.circle([lat, lon], {
+        radius: radiusM,
+        color: '#0369A1',
+        weight: 1.5,
+        opacity: 0.55,
+        fillOpacity: 0,
+        dashArray: '5 5',
+        interactive: false,
+      }).addTo(this.map);
+    }
+  }
+
+  removeRadiusCircle(): void {
+    this.radiusCircle?.remove();
+    this.radiusCircle = null;
+  }
+
+  addUserMarker(lat: number, lon: number): void {
+    if (!this.map) return;
+    if (this.userMarker) {
+      this.userMarker.setLatLng([lat, lon]);
+      return;
+    }
+    this.userMarker = L.circleMarker([lat, lon], {
+      radius: 9,
+      className: 'user-location-marker',
+      interactive: false,
+    }).addTo(this.map);
+  }
+
+  removeUserMarker(): void {
+    this.userMarker?.remove();
+    this.userMarker = null;
+  }
+
   zoomIn(): void {
     this.map?.zoomIn();
   }

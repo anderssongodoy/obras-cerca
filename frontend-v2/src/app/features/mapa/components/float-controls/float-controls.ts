@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
 
+import { GeolocationService } from '../../../../core/services/geolocation.service';
 import { FloatButton } from '../../../../shared/ui/float-button/float-button';
 
 @Component({
@@ -10,7 +11,16 @@ import { FloatButton } from '../../../../shared/ui/float-button/float-button';
   styleUrl: './float-controls.scss',
 })
 export class FloatControls {
+  private readonly geolocation = inject(GeolocationService);
+
   readonly zoomedIn = output<void>();
   readonly zoomedOut = output<void>();
   readonly layerToggled = output<void>();
+
+  protected readonly canLocate = computed(() => this.geolocation.status() === 'granted');
+
+  protected onLocate(): void {
+    if (!this.canLocate()) return;
+    this.geolocation.centerOnUser();
+  }
 }

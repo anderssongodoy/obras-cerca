@@ -10,6 +10,43 @@
   gap: 8px;
 }
 
+// Botón locate-me — estilo inline (no usa FloatButton para soportar disabled nativo)
+.float-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-btn);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: var(--ink);
+  transition: background 0.15s, transform 0.1s, opacity 0.15s;
+
+  &:hover:not(:disabled) {
+    background: var(--mute);
+    transform: scale(1.04);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.96);
+  }
+
+  .material-symbols-outlined {
+    font-size: 20px;
+    user-select: none;
+  }
+}
+
+.float-btn--disabled,
+.float-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 @media (max-width: 640px) {
   .float-controls { bottom: 78px; }
 }

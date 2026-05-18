@@ -1,0 +1,24 @@
+<div class="radio-card">
+  <div class="radio-card__header">
+    <span class="radio-card__label">Radio</span>
+    <span class="radio-card__value">{{ radioKm() }} km</span>
+  </div>
+
+  <input
+    class="radio-card__slider"
+    type="range"
+    min="1"
+    max="10"
+    step="1"
+    [value]="radioKm()"
+    [style.--pct]="((radioKm() - 1) / 9 * 100) + '%'"
+    (input)="onSliderChange($event)"
+    aria-label="Radio de búsqueda de obras"
+    [attr.aria-valuetext]="radioKm() + ' kilómetros'"
+  />
+
+  <div class="radio-card__ticks" aria-hidden="true">
+    <span>1 km</span>
+    <span>10 km</span>
+  </div>
+</div>

@@ -12,6 +12,10 @@
 
 <app-topbar-strip [total]="total()" />
 
+@if (geoStatus() === 'granted') {
+  <app-radio-selector />
+}
+
 <app-result-counter
   [visible]="hasActiveFilter()"
   [shown]="visibleCount()"
@@ -39,3 +43,5 @@
   (zoomedOut)="onZoomOut()"
   (layerToggled)="onLayerToggled()"
 />
+
+<app-location-permission-modal />

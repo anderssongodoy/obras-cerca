@@ -18,17 +18,28 @@ export class ObrasService {
 
   // Filtros server-side — se exponen como signals editables para que la UI escriba aquí.
   readonly ubigeo = signal<string | null>(UBIGEO_CALLAO_DEFAULT);
+  readonly userLat = signal<number | null>(null);
+  readonly userLon = signal<number | null>(null);
+  readonly radioM = signal<number>(5000);
   readonly busqueda = signal<string>('');
   readonly limit = signal<number>(200);
 
-  readonly resource = httpResource<ObrasListResponse>(() => ({
-    url: `${this.apiBase}/api/obras`,
-    params: {
-      ...(this.ubigeo() ? { ubigeo: this.ubigeo() as string } : {}),
-      ...(this.busqueda().trim() ? { q: this.busqueda().trim() } : {}),
-      limit: this.limit(),
-    },
-  }));
+  readonly resource = httpResource<ObrasListResponse>(() => {
+    const lat = this.userLat();
+    const lon = this.userLon();
+    const hasCoords = lat !== null && lon !== null;
+    return {
+      url: `${this.apiBase}/api/obras`,
+      params: {
+        // Si tenemos coords del usuario, usamos proximidad. Si no, ubigeo como fallback.
+        ...(hasCoords
+          ? { lat, lon, radio_m: this.radioM() }
+          : this.ubigeo() ? { ubigeo: this.ubigeo() as string } : {}),
+        ...(this.busqueda().trim() ? { q: this.busqueda().trim() } : {}),
+        limit: this.limit(),
+      },
+    };
+  });
 
   // Lista normalizada al shape del demo — cruza ObraApi[] con el Set de señales.
   readonly obras = computed<Obra[]>(() => {
@@ -48,7 +59,7 @@ export class ObrasService {
 }
 
 function tieneCoords(o: ObraApi): boolean {
-  return o.latitud != null && o.longitud != null;
+  return o.latitud != null && o.longitud != null && !isNaN(Number(o.latitud)) && !isNaN(Number(o.longitud));
 }
 
 function mapApiToObra(api: ObraApi, conSenal: boolean): Obra {
@@ -61,7 +72,7 @@ function mapApiToObra(api: ObraApi, conSenal: boolean): Obra {
     montoLabel: monto.label,
     entidad: api.entidad_nombre ?? 'Sin entidad',
     distrito: api.distrito_nombre ?? 'Sin distrito',
-    coords: [api.latitud as number, api.longitud as number],
+    coords: [Number(api.latitud), Number(api.longitud)],
     conSenal,
     fuente: derivarFuente(api, false),
     urlInfobras: api.url_infobras_ficha,

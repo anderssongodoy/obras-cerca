@@ -2,4 +2,15 @@
   <app-float-button icon="add" ariaLabel="Acercar" (clicked)="zoomedIn.emit()" />
   <app-float-button icon="remove" ariaLabel="Alejar" (clicked)="zoomedOut.emit()" />
   <app-float-button icon="layers" ariaLabel="Cambiar capa" (clicked)="layerToggled.emit()" />
+  <button
+    type="button"
+    class="float-btn float-btn--locate"
+    [class.float-btn--disabled]="!canLocate()"
+    [disabled]="!canLocate()"
+    [attr.aria-label]="'Centrar en mi ubicación'"
+    [attr.aria-disabled]="!canLocate()"
+    (click)="onLocate()"
+  >
+    <span class="material-symbols-outlined">my_location</span>
+  </button>
 </div>

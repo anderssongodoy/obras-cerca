@@ -10,9 +10,11 @@ import { SenalesService } from '../../core/services/senales.service';
 import { FiltrosDrawer } from './components/filtros-drawer/filtros-drawer';
 import { FloatControls } from './components/float-controls/float-controls';
 import { LeafletMap } from './components/leaflet-map/leaflet-map';
+import { LocationPermissionModal } from './components/location-permission-modal/location-permission-modal';
 import { ObraPanel } from './components/obra-panel/obra-panel';
 import { ResultCounter } from './components/result-counter/result-counter';
 import { Topbar } from './components/topbar/topbar';
+import { RadioSelector } from './components/radio-selector/radio-selector';
 import { TopbarStrip } from './components/topbar-strip/topbar-strip';
 import type { FiltroChip } from '../../core/models/filtros.model';
 
@@ -23,10 +25,12 @@ import type { FiltroChip } from '../../core/models/filtros.model';
     LeafletMap,
     Topbar,
     TopbarStrip,
+    RadioSelector,
     FloatControls,
     ResultCounter,
     ObraPanel,
     FiltrosDrawer,
+    LocationPermissionModal,
   ],
   templateUrl: './mapa.page.html',
   styleUrl: './mapa.page.scss',
@@ -52,6 +56,7 @@ export class MapaPage {
   protected readonly total = this.obrasService.total;
   protected readonly busqueda = this.filtrosService.texto;
   protected readonly hasActiveFilter = this.filtrosService.hasActiveFilter;
+  protected readonly geoStatus = this.geolocation.status;
   protected readonly activeChip = this.filtrosService.estado;
 
   protected readonly visibleCount = computed(() => {
@@ -129,7 +134,7 @@ export class MapaPage {
   }
 
   protected onLocationCentered(): void {
-    this.geolocation.centerOnCallao();
+    this.geolocation.centerOnUser();
   }
 
   protected onZoomIn(): void {

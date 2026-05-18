@@ -20,7 +20,7 @@ export class ObrasService {
   readonly ubigeo = signal<string | null>(UBIGEO_CALLAO_DEFAULT);
   readonly userLat = signal<number | null>(null);
   readonly userLon = signal<number | null>(null);
-  readonly radioM = signal<number>(5000);
+  readonly radioM = signal<number>(50000); // 50 km — cubre Lima Metropolitana + Callao
   readonly busqueda = signal<string>('');
   readonly limit = signal<number>(200);
 

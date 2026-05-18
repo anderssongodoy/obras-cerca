@@ -28,7 +28,7 @@ def listar(
     ubigeo: Optional[str] = None,
     lat: Optional[float] = None,
     lon: Optional[float] = None,
-    radio_m: int = Query(2000, ge=100, le=20000),
+    radio_m: int = Query(2000, ge=100, le=100000),
     paralizadas_wfs: Optional[bool] = None,
     inactivas_mef: Optional[bool] = None,
     con_saldos: Optional[bool] = None,

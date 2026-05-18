@@ -69,6 +69,8 @@ export class MapService {
     this.markersById.clear();
     this.obrasById.clear();
     this.selectedId = null;
+    this.userMarker = null;
+    this.radiusCircle = null;
   }
 
   syncObras(obras: Obra[]): void {

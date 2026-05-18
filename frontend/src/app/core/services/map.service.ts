@@ -1,8 +1,11 @@
 import { Injectable, signal } from '@angular/core';
 import * as L from 'leaflet';
-// Importar el JS directo del paquete fuerza la ejecución del side-effect
-// (extiende L con markerClusterGroup). El import 'leaflet.markercluster' suelto
-// puede ser eliminado por tree-shaking en build de producción.
+// Two-step:
+//   1. `import type {}` trae las TYPES de leaflet.markercluster (compila TS bien).
+//   2. el path directo al JS fuerza el SIDE-EFFECT (extiende L con markerClusterGroup).
+//      Es necesario porque el bundler de Angular tree-shakea `import 'leaflet.markercluster'`
+//      en producción.
+import type {} from 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/leaflet.markercluster.js';
 import { Subject } from 'rxjs';
 

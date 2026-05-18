@@ -15,9 +15,8 @@ import type { Obra, Tramo } from '../models/obra.model';
 import { makeIcon } from '../../features/mapa/utils/marker-factory';
 import { popupHtml } from '../../features/mapa/utils/popup-html';
 
-// Leaflet + Markercluster se cargan desde CDN en index.html como globals.
-// Usamos `declare const L: any` para evitar problemas de tree-shaking del bundler.
-declare const L: any;
+import * as L from 'leaflet';
+import 'leaflet.markercluster';
 
 @Injectable({ providedIn: 'root' })
 export class MapService {

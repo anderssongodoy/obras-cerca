@@ -1,13 +1,10 @@
-import * as L from 'leaflet';
-
 import type { EstadoObra } from '../../../core/models/obra.model';
 import { estadoColorVar, estadoIcon } from './estado-catalog';
 
-/**
- * Crea un L.DivIcon con el pin civic del demo (paridad línea 1435).
- * El estilo `.marker-pin` vive en `styles/_leaflet-overrides.scss`.
- */
-export function makeIcon(estado: EstadoObra, titulo: string): L.DivIcon {
+// L viene del CDN (window.L) cargado en index.html.
+const L: any = (typeof window !== 'undefined' ? (window as any).L : undefined);
+
+export function makeIcon(estado: EstadoObra, titulo: string): any {
   const color = estadoColorVar[estado];
   const iconName = estadoIcon[estado];
   const label = escapeAttribute(`Seleccionar obra: ${titulo}`);

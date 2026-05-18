@@ -42,11 +42,15 @@ export class ObrasService {
   });
 
   // Lista normalizada al shape del demo — cruza ObraApi[] con el Set de señales.
+  // Filtra obras sin nombre real (sin nombre_obra ni nombre_inversion).
   readonly obras = computed<Obra[]>(() => {
     const resp = this.resource.value();
     if (!resp) return [];
     const senales = this.senales.obrasConSenal();
-    return resp.items.filter(tieneCoords).map((api) => mapApiToObra(api, senales.has(api.id)));
+    return resp.items
+      .filter(tieneCoords)
+      .filter(tieneNombre)
+      .map((api) => mapApiToObra(api, senales.has(api.id)));
   });
 
   readonly total = computed(() => this.resource.value()?.total ?? 0);
@@ -60,6 +64,11 @@ export class ObrasService {
 
 function tieneCoords(o: ObraApi): boolean {
   return o.latitud != null && o.longitud != null && !isNaN(Number(o.latitud)) && !isNaN(Number(o.longitud));
+}
+
+function tieneNombre(o: ObraApi): boolean {
+  const n = (o.nombre_obra || o.nombre_inversion || '').trim();
+  return n.length > 0 && n !== '—';
 }
 
 function mapApiToObra(api: ObraApi, conSenal: boolean): Obra {

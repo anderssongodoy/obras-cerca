@@ -15,3 +15,4 @@ Proyecto desarrollado para **Hack@Latam 2026** (hack.indies.la · 15–17 mayo 2
 - **Lenguaje**: cívico y no acusatorio, basado en datos públicos
 
 🏗️ Porque cada obra pública merece ser visible.
+📍 Datos abiertos para una ciudadanía mejor informada.

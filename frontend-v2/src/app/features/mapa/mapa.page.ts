@@ -2,6 +2,7 @@ import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 
+import { ChatService } from '../../core/services/chat.service';
 import { GeolocationService } from '../../core/services/geolocation.service';
 import { MapService } from '../../core/services/map.service';
 import { ObrasService } from '../../core/services/obras.service';
@@ -11,6 +12,7 @@ import { FiltrosDrawer } from './components/filtros-drawer/filtros-drawer';
 import { FloatControls } from './components/float-controls/float-controls';
 import { LeafletMap } from './components/leaflet-map/leaflet-map';
 import { LocationPermissionModal } from './components/location-permission-modal/location-permission-modal';
+import { ObraChat } from './components/obra-chat/obra-chat';
 import { ObraPanel } from './components/obra-panel/obra-panel';
 import { ResultCounter } from './components/result-counter/result-counter';
 import { Topbar } from './components/topbar/topbar';
@@ -31,6 +33,7 @@ import type { FiltroChip } from '../../core/models/filtros.model';
     ObraPanel,
     FiltrosDrawer,
     LocationPermissionModal,
+    ObraChat,
   ],
   templateUrl: './mapa.page.html',
   styleUrl: './mapa.page.scss',
@@ -39,12 +42,13 @@ import type { FiltroChip } from '../../core/models/filtros.model';
   },
 })
 export class MapaPage {
-  private readonly obrasService = inject(ObrasService);
+  private readonly obrasService   = inject(ObrasService);
   private readonly senalesService = inject(SenalesService);
   private readonly filtrosService = inject(FiltrosService);
-  private readonly mapService = inject(MapService);
-  private readonly geolocation = inject(GeolocationService);
-  private readonly document = inject(DOCUMENT);
+  private readonly mapService     = inject(MapService);
+  private readonly geolocation    = inject(GeolocationService);
+  private readonly document       = inject(DOCUMENT);
+  private readonly chatService    = inject(ChatService);
   private focusBeforeDrawer: HTMLElement | null = null;
 
   protected readonly selectedId = signal<number | null>(null);
@@ -52,16 +56,16 @@ export class MapaPage {
 
   private readonly clickedId = toSignal(this.mapService.clickedId$, { initialValue: null });
 
-  protected readonly obras = this.obrasService.obras;
-  protected readonly total = this.obrasService.total;
-  protected readonly busqueda = this.filtrosService.texto;
-  protected readonly hasActiveFilter = this.filtrosService.hasActiveFilter;
-  protected readonly geoStatus = this.geolocation.status;
-  protected readonly activeChip = this.filtrosService.estado;
+  protected readonly obras            = this.obrasService.obras;
+  protected readonly total            = this.obrasService.total;
+  protected readonly busqueda         = this.filtrosService.texto;
+  protected readonly hasActiveFilter  = this.filtrosService.hasActiveFilter;
+  protected readonly geoStatus        = this.geolocation.status;
+  protected readonly activeChip       = this.filtrosService.estado;
 
   protected readonly visibleCount = computed(() => {
     const obras = this.obras();
-    const chip = this.activeChip();
+    const chip  = this.activeChip();
     if (chip === 'todas') return obras.length;
     if (chip === 'con_senal') return obras.filter((o) => o.conSenal).length;
     return obras.filter((o) => o.estado === chip).length;
@@ -76,13 +80,13 @@ export class MapaPage {
   protected readonly chipCounts = computed<Record<FiltroChip, number>>(() => {
     const obras = this.obras();
     return {
-      todas: obras.length,
-      en_ejecucion: obras.filter((o) => o.estado === 'en_ejecucion').length,
+      todas:         obras.length,
+      en_ejecucion:  obras.filter((o) => o.estado === 'en_ejecucion').length,
       en_licitacion: obras.filter((o) => o.estado === 'en_licitacion').length,
-      verificada: obras.filter((o) => o.estado === 'verificada').length,
-      informativo: obras.filter((o) => o.estado === 'informativo').length,
-      senal: obras.filter((o) => o.estado === 'senal').length,
-      con_senal: obras.filter((o) => o.conSenal).length,
+      verificada:    obras.filter((o) => o.estado === 'verificada').length,
+      informativo:   obras.filter((o) => o.estado === 'informativo').length,
+      senal:         obras.filter((o) => o.estado === 'senal').length,
+      con_senal:     obras.filter((o) => o.conSenal).length,
     };
   });
 
@@ -107,6 +111,24 @@ export class MapaPage {
       this.mapService.applySelected(this.selectedId());
     });
 
+    // Ciclo de vida del chat — reacciona a cambios de obra seleccionada
+    effect(() => {
+      const id = this.selectedId();
+      if (id == null) {
+        this.chatService.closeChat();
+        return;
+      }
+      // Obra cambió
+      if (this.chatService.obraId() !== id) {
+        if (this.chatService.isOpen()) {
+          // Chat abierto en otra obra → resetear para la nueva obra (limpia mensajes)
+          this.chatService.resetForObra(id);
+        } else {
+          // Chat cerrado → precargar health/sugerencias para que el botón aparezca
+          this.chatService.prefetchForObra(id);
+        }
+      }
+    });
   }
 
   protected onSearchChanged(value: string): void {
@@ -150,10 +172,15 @@ export class MapaPage {
   }
 
   protected onPanelClosed(): void {
+    this.chatService.closeChat();
     this.selectedId.set(null);
   }
 
   protected onEscape(): void {
+    if (this.chatService.isOpen()) {
+      this.chatService.closeChat();
+      return;
+    }
     if (this.drawerOpen()) {
       this.drawerOpen.set(false);
       this.restoreDrawerFocus();

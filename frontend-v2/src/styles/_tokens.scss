@@ -41,4 +41,10 @@
   // Easings y motion
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-spring:    cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  // z-index scale — evita sprawl de valores mágicos
+  --z-chat:        800;
+  --z-panel:       900;
+  --z-chat-mobile: 905;
+  --z-modal:       950;
 }

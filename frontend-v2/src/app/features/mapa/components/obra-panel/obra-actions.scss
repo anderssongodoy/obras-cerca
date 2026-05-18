@@ -48,3 +48,33 @@
 
 .fuente app-icon { font-size: 13px; color: var(--ink-3); }
 .fuente strong { font-weight: 600; color: var(--ink); }
+
+.btn-chat {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 44px;
+  background: transparent;
+  color: var(--state-informativo);
+  border: 1px solid var(--state-informativo);
+  border-radius: 10px;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  letter-spacing: -0.005em;
+}
+
+.btn-chat:hover {
+  background: var(--state-informativo-soft);
+}
+
+.btn-chat:focus-visible {
+  outline: 2px solid var(--state-informativo);
+  outline-offset: 2px;
+}
+
+.btn-chat app-icon { font-size: 16px; }

@@ -1,0 +1,92 @@
+<aside class="chat" aria-label="Chat sobre la obra">
+  <header class="chat-head">
+    <div class="chat-head-title">
+      <app-icon name="auto_awesome" />
+      <span>Preguntar a la IA</span>
+    </div>
+    <app-icon-button icon="close" ariaLabel="Cerrar chat" (clicked)="onClose()" />
+  </header>
+
+  <div class="chat-body" #scrollHost>
+    @if (chat.showChips()) {
+      <div class="chat-empty">
+        <p class="chat-empty-hint">Estas son algunas preguntas frecuentes:</p>
+        <div class="chat-chips">
+          @for (s of chat.sugerencias(); track s) {
+            <button class="chip" type="button" (click)="onChipClick(s)">{{ s }}</button>
+          }
+        </div>
+      </div>
+    }
+
+    @for (m of chat.messages(); track m.timestamp) {
+      <div
+        class="msg"
+        [class.msg-user]="m.role === 'user'"
+        [class.msg-ai]="m.role === 'ai'"
+        [class.msg-error]="m.isError"
+      >
+        @if (m.loading) {
+          <div class="msg-loading" aria-label="Pensando...">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="msg-loading-text">Pensando...</span>
+          </div>
+        } @else {
+          <p class="msg-text">{{ m.text }}</p>
+          @if (m.cached) {
+            <span class="msg-cache-badge">respuesta cacheada</span>
+          }
+          @if (m.fuentes && m.fuentes.length > 0) {
+            <div class="msg-fuentes">
+              <span class="msg-fuentes-label">Fuentes:</span>
+              @for (f of m.fuentes; track f.informe_id) {
+                @if (f.url_pdf) {
+                  <a
+                    class="fuente-pill"
+                    [href]="f.url_pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    [attr.aria-label]="'Ver informe ' + (f.nro_informe || f.informe_id)"
+                  >
+                    {{ f.nro_informe || 'Informe ' + f.informe_id }}
+                    <app-icon name="open_in_new" />
+                  </a>
+                } @else {
+                  <span class="fuente-pill fuente-pill-static">
+                    {{ f.nro_informe || 'Informe ' + f.informe_id }}
+                  </span>
+                }
+              }
+            </div>
+          }
+        }
+      </div>
+    }
+  </div>
+
+  <footer class="chat-input">
+    <textarea
+      #inputEl
+      class="chat-textarea"
+      rows="1"
+      maxlength="500"
+      placeholder="Escribí tu pregunta..."
+      aria-label="Escribí tu pregunta"
+      [disabled]="chat.isLoading()"
+      [value]="draft()"
+      (input)="draft.set($any($event.target).value)"
+      (keydown)="onKeydown($event)"
+    ></textarea>
+    <button
+      class="btn-send"
+      type="button"
+      [disabled]="!canSend()"
+      (click)="onSend()"
+      aria-label="Enviar pregunta"
+    >
+      <app-icon name="send" />
+    </button>
+  </footer>
+</aside>

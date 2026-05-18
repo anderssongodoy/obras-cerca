@@ -15,6 +15,13 @@
     </button>
   }
 
+  @if (canAsk()) {
+    <button class="btn-chat" type="button" (click)="openChat()" aria-label="Preguntar a la IA sobre esta obra">
+      <app-icon name="auto_awesome" />
+      <span>Preguntar a la IA</span>
+    </button>
+  }
+
   <div class="fuente">
     <app-icon name="source" />
     <span>Fuente: <strong>{{ obra().fuente }}</strong></span>

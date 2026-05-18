@@ -68,7 +68,12 @@ function tieneCoords(o: ObraApi): boolean {
 
 function tieneNombre(o: ObraApi): boolean {
   const n = (o.nombre_obra || o.nombre_inversion || '').trim();
-  return n.length > 0 && n !== '—';
+  if (n.length === 0 || n === '—') return false;
+  // Rechazar nombres placeholder tipo "(pendiente)" que vienen de obras nuevas sin enriquecer
+  const lower = n.toLowerCase();
+  if (lower === '(pendiente)' || lower === 'pendiente') return false;
+  if (lower.startsWith('(pendiente')) return false;
+  return true;
 }
 
 function mapApiToObra(api: ObraApi, conSenal: boolean): Obra {

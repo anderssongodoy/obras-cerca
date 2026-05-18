@@ -51,6 +51,16 @@ export class GeolocationService {
         this.mapService.removeRadiusCircle();
       }
     });
+
+    // Re-centra en la ubicación del usuario cuando el mapa se reinicializa
+    // (por ejemplo, al volver al mapa desde otra ruta).
+    effect(() => {
+      if (!this.mapService.initialized()) return;
+      const pos = this.position();
+      if (pos) {
+        this.mapService.flyTo(pos.coords.latitude, pos.coords.longitude, 15);
+      }
+    });
   }
 
   requestPermission(): void {

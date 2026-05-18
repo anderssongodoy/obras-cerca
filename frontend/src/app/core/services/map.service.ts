@@ -1,6 +1,9 @@
 import { Injectable, signal } from '@angular/core';
 import * as L from 'leaflet';
-import 'leaflet.markercluster';
+// Importar el JS directo del paquete fuerza la ejecución del side-effect
+// (extiende L con markerClusterGroup). El import 'leaflet.markercluster' suelto
+// puede ser eliminado por tree-shaking en build de producción.
+import 'leaflet.markercluster/dist/leaflet.markercluster.js';
 import { Subject } from 'rxjs';
 
 import {

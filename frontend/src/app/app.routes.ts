@@ -17,6 +17,11 @@ export const routes: Routes = [
       import('./features/mapa/mapa.page').then((m) => m.MapaPage),
   },
   {
+    path: 'obra/:id',
+    loadComponent: () =>
+      import('./features/obra-detalle/obra-detalle.page').then((m) => m.ObraDetallePage),
+  },
+  {
     path: '',
     pathMatch: 'full',
     redirectTo: 'mapa',

@@ -1,12 +1,4 @@
 import { Injectable, signal } from '@angular/core';
-import * as L from 'leaflet';
-// Two-step:
-//   1. `import type {}` trae las TYPES de leaflet.markercluster (compila TS bien).
-//   2. el path directo al JS fuerza el SIDE-EFFECT (extiende L con markerClusterGroup).
-//      Es necesario porque el bundler de Angular tree-shakea `import 'leaflet.markercluster'`
-//      en producción.
-import type {} from 'leaflet.markercluster';
-import 'leaflet.markercluster/dist/leaflet.markercluster.js';
 import { Subject } from 'rxjs';
 
 import {
@@ -23,14 +15,20 @@ import type { Obra, Tramo } from '../models/obra.model';
 import { makeIcon } from '../../features/mapa/utils/marker-factory';
 import { popupHtml } from '../../features/mapa/utils/popup-html';
 
+// Leaflet + Markercluster se cargan desde CDN en index.html como globals.
+// Usamos `declare const L: any` para evitar problemas de tree-shaking del bundler.
+declare const L: any;
+
 @Injectable({ providedIn: 'root' })
 export class MapService {
-  private map: L.Map | null = null;
-  private clusterGroup: L.MarkerClusterGroup | null = null;
-  private readonly markersById = new Map<number, L.Marker>();
+  private map: any = null;
+  private clusterGroup: any = null;
+  private readonly markersById = new Map<number, any>();
   private readonly obrasById = new Map<number, Obra>();
   private selectedId: number | null = null;
   private filterChip: FiltroChip = 'todas';
+  private userMarker: any = null;
+  private radiusCircle: any = null;
 
   readonly clickedId$ = new Subject<number>();
   readonly initialized = signal(false);
@@ -54,7 +52,7 @@ export class MapService {
 
     this.clusterGroup = L.markerClusterGroup({
       maxClusterRadius: CLUSTER_RADIUS,
-      iconCreateFunction: (cluster) => this.createClusterIcon(cluster.getChildCount()),
+      iconCreateFunction: (cluster: any) => this.createClusterIcon(cluster.getChildCount()),
     });
     this.map.addLayer(this.clusterGroup);
 
@@ -109,8 +107,6 @@ export class MapService {
   }
 
   syncTramos(tramos: Tramo[]): void {
-    // Fase 4.6: no renderizar overlays SVG en el mapa base.
-    // El demo fuente usado para la paridad visual muestra solo markers.
     void tramos;
   }
 
@@ -121,9 +117,6 @@ export class MapService {
   flyTo(lat: number, lon: number, zoom?: number): void {
     this.map?.flyTo([lat, lon], zoom ?? ZOOM_DEFAULT, { duration: 1.0 });
   }
-
-  private userMarker: L.CircleMarker | null = null;
-  private radiusCircle: L.Circle | null = null;
 
   syncRadiusCircle(lat: number, lon: number, radiusM: number): void {
     if (!this.map) return;
@@ -201,11 +194,10 @@ export class MapService {
   }
 
   private applyCircleSelection(): void {
-    // Fase 4.6: no renderizar circles/radios de impacto.
-    // La selección se expresa solo con la clase `.marker-pin.is-selected`.
+    // No-op: la selección se expresa solo con .marker-pin.is-selected
   }
 
-  private createClusterIcon(count: number): L.DivIcon {
+  private createClusterIcon(count: number): any {
     const size = count < 10 ? 40 : count < 30 ? 52 : 64;
     return L.divIcon({
       className: '',

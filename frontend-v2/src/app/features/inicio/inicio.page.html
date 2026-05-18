@@ -1,0 +1,95 @@
+<app-topbar [showMapControls]="false" />
+
+<main class="inicio" aria-labelledby="inicio-title">
+  <header class="hero">
+    <p class="hero__eyebrow">Transparencia ciudadana</p>
+    <h1 id="inicio-title" class="hero__title">
+      <span class="hero__amount">{{ formatMoney(montoParalizado()) }}</span>
+      comprometidos en obras con señales de revisión
+    </h1>
+    <p class="hero__lead">
+      Este tablero resume actividad y señales públicas para ayudarte a detectar riesgos,
+      contrastar avances y priorizar monitoreo ciudadano.
+    </p>
+    <a routerLink="/mapa" class="hero__cta">
+      Explorá las obras en el mapa
+      <span aria-hidden="true">→</span>
+    </a>
+  </header>
+
+  @if (stats(); as s) {
+    <section class="metrics" aria-label="Métricas generales del sistema">
+      <article class="metric">
+        <span class="metric__value">{{ s.totales.proyectos | number }}</span>
+        <span class="metric__label">Proyectos</span>
+      </article>
+      <article class="metric">
+        <span class="metric__value">{{ s.totales.obras | number }}</span>
+        <span class="metric__label">Obras registradas</span>
+      </article>
+      <article class="metric metric--alert">
+        <span class="metric__value">{{ s.totales.obras_paralizadas_wfs | number }}</span>
+        <span class="metric__label">Paralizadas (WFS)</span>
+      </article>
+      <article class="metric metric--alert">
+        <span class="metric__value">{{ s.totales.proyectos_desactivados | number }}</span>
+        <span class="metric__label">Desactivadas MEF</span>
+      </article>
+      <article class="metric">
+        <span class="metric__value">{{ s.totales.informes_control | number }}</span>
+        <span class="metric__label">Informes de control</span>
+      </article>
+      <article class="metric metric--warn">
+        <span class="metric__value">{{ s.totales.senales_activas | number }}</span>
+        <span class="metric__label">Señales activas</span>
+      </article>
+    </section>
+  } @else if (statsLoading()) {
+    <section class="metrics metrics--skeleton" aria-label="Cargando métricas">
+      @for (i of [1,2,3,4,5,6]; track i) {
+        <article class="metric metric--ghost"></article>
+      }
+    </section>
+  } @else if (statsError()) {
+    <p class="state state--error" role="alert">No se pudieron cargar las métricas por ahora.</p>
+  }
+
+  <section class="recent" aria-labelledby="senales-recientes-title">
+    <header class="recent__header">
+      <h2 id="senales-recientes-title">Señales recientes</h2>
+      <a routerLink="/senales" class="recent__all">Ver todas →</a>
+    </header>
+
+    @if (senalesLoading()) {
+      <p class="state">Cargando señales…</p>
+    } @else if (senalesError()) {
+      <p class="state state--error" role="alert">No pudimos cargar señales recientes en este momento.</p>
+    } @else if (senalesRecientes().length === 0) {
+      <p class="state">Todavía no hay señales recientes para mostrar.</p>
+    } @else {
+      <div class="cards" role="list">
+        @for (senal of senalesRecientes(); track senal.id) {
+          <article class="card" role="listitem">
+            <div class="card__meta">
+              <span class="tipo-badge">{{ tipoLabel(senal.tipo) }}</span>
+              <span class="card__date">{{ formatDate(senal.detectada_en) || 'Sin fecha' }}</span>
+            </div>
+            <h3 class="card__title">{{ senal.titulo || 'Señal sin título' }}</h3>
+            <p class="card__summary">{{ senal.resumen || 'Sin descripción disponible.' }}</p>
+            <div class="card__foot-row">
+              <p class="card__foot">
+                {{ senal.distrito || 'Sin distrito' }} · {{ senal.entidad || 'Sin entidad' }}
+              </p>
+              @if (senal.score != null) {
+                <p class="card__score" [attr.aria-label]="scoreLabel(senal.tipo) + ': ' + formatScore(senal)">
+                  <strong class="score-val">{{ formatScore(senal) }}</strong>
+                  <span class="score-label">{{ scoreLabel(senal.tipo) }}</span>
+                </p>
+              }
+            </div>
+          </article>
+        }
+      </div>
+    }
+  </section>
+</main>

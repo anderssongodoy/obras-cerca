@@ -1,47 +1,55 @@
 <header class="topbar" role="banner">
   <div class="topbar-inner">
-    <a href="#" class="logo" aria-label="ObrasCerca inicio">
+    <a routerLink="/mapa" class="logo" aria-label="ObrasCerca mapa">
       <span class="logo-icon" aria-hidden="true">
         <app-icon name="public" />
       </span>
       <span class="logo-text">ObrasCerca</span>
     </a>
 
-    <div class="search-wrap">
-      <span class="search-icon" aria-hidden="true">
-        <app-icon name="search" />
-      </span>
-      <input
-        type="search"
-        class="search-input"
-        placeholder="Buscar obra, distrito, entidad…"
-        [value]="searchValue()"
-        (input)="onSearch($event)"
-        aria-label="Buscar obras"
-      />
-    </div>
+    <nav class="topbar-nav" aria-label="Navegación principal">
+      <a routerLink="/inicio" routerLinkActive="is-active" #inicioRla="routerLinkActive" [attr.aria-current]="inicioRla.isActive ? 'page' : null">Inicio</a>
+      <a routerLink="/mapa" routerLinkActive="is-active" #mapaRla="routerLinkActive" [routerLinkActiveOptions]="{ exact: true }" [attr.aria-current]="mapaRla.isActive ? 'page' : null">Mapa</a>
+      <a routerLink="/senales" routerLinkActive="is-active" #senalesRla="routerLinkActive" [attr.aria-current]="senalesRla.isActive ? 'page' : null">Señales</a>
+    </nav>
 
-    <button
-      type="button"
-      class="btn-filtros"
-      [class.has-active]="hasActiveFilter()"
-      aria-label="Abrir filtros"
-      aria-haspopup="dialog"
-      [attr.aria-expanded]="filtersOpen()"
-      (click)="filtrosOpened.emit()"
-    >
-      <app-icon name="tune" />
-      <span class="filtros-label">Filtros</span>
-      <span class="filtros-count">{{ filterCount() }}</span>
-    </button>
+    @if (showMapControls()) {
+      <div class="search-wrap">
+        <span class="search-icon" aria-hidden="true">
+          <app-icon name="search" />
+        </span>
+        <input
+          type="search"
+          class="search-input"
+          placeholder="Buscar obra, distrito, entidad…"
+          [value]="searchValue()"
+          (input)="onSearch($event)"
+          aria-label="Buscar obras"
+        />
+      </div>
 
-    <button
-      type="button"
-      class="btn-location"
-      aria-label="Centrar en Callao"
-      (click)="locationCentered.emit()"
-    >
-      <app-icon name="my_location" />
-    </button>
+      <button
+        type="button"
+        class="btn-filtros"
+        [class.has-active]="hasActiveFilter()"
+        aria-label="Abrir filtros"
+        aria-haspopup="dialog"
+        [attr.aria-expanded]="filtersOpen()"
+        (click)="filtrosOpened.emit()"
+      >
+        <app-icon name="tune" />
+        <span class="filtros-label">Filtros</span>
+        <span class="filtros-count">{{ filterCount() }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="btn-location"
+        aria-label="Centrar en Callao"
+        (click)="locationCentered.emit()"
+      >
+        <app-icon name="my_location" />
+      </button>
+    }
   </div>
 </header>

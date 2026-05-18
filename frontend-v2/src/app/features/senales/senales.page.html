@@ -1,0 +1,106 @@
+<app-topbar [showMapControls]="false" />
+
+<main class="senales" aria-labelledby="senales-title">
+  <header class="senales__header">
+    <h1 id="senales-title">Señales de revisión</h1>
+    <p>
+      Monitoreá alertas sobre sobrecostos, discrepancias de avance, paralizaciones y otros patrones
+      de riesgo en obras públicas.
+    </p>
+  </header>
+
+  <section class="filters" role="group" aria-label="Filtrar señales por tipo">
+    <button
+      type="button"
+      class="filter-btn"
+      [class.is-active]="filtro() === null"
+      [attr.aria-pressed]="filtro() === null"
+      (click)="setFiltro(null)"
+    >
+      Todas ({{ (senales() ?? []).length }})
+    </button>
+
+    @for (tipo of tipos(); track tipo) {
+      <button
+        type="button"
+        class="filter-btn"
+        [class.is-active]="filtro() === tipo"
+        [attr.aria-pressed]="filtro() === tipo"
+        (click)="setFiltro(tipo)"
+      >
+        {{ tipoLabel(tipo) }} ({{ contar(tipo) }})
+      </button>
+    }
+  </section>
+
+  @if (loading()) {
+    <p class="state">Cargando señales…</p>
+  } @else if (error()) {
+    <section class="state state--error" role="alert">
+      <p>No se pudieron cargar las señales.</p>
+      <button type="button" class="retry-btn" (click)="svc.resource.reload()">Reintentar</button>
+    </section>
+  } @else if (filtradas().length === 0) {
+    <section class="state state--empty">
+      @if (filtro(); as tipoSeleccionado) {
+        <p>No hay señales para el tipo “{{ tipoLabel(tipoSeleccionado) }}”.</p>
+      } @else {
+        <p>No hay señales para mostrar.</p>
+      }
+      <button type="button" class="retry-btn" (click)="setFiltro(null)">Ver todas</button>
+    </section>
+  } @else {
+    <section class="cards" aria-label="Listado de señales">
+      @for (senal of paginadas(); track senal.id) {
+        <article class="card">
+          <div class="card__meta">
+            <span class="tipo-badge">{{ tipoLabel(senal.tipo) }}</span>
+            <span class="card__date">{{ formatDate(senal.detectada_en) || 'Sin fecha' }}</span>
+          </div>
+          <h2 class="card__title">{{ senal.titulo || 'Señal sin título' }}</h2>
+          <p class="card__summary">{{ senal.resumen || 'Sin descripción disponible.' }}</p>
+          <div class="card__foot-row">
+            <p class="card__foot">
+              {{ senal.distrito || 'Sin distrito' }} · {{ senal.entidad || 'Sin entidad' }} ·
+              {{ senal.contratista || 'Sin contratista' }}
+            </p>
+            @if (senal.score != null) {
+              <p class="card__score" [attr.aria-label]="scoreLabel(senal.tipo) + ': ' + formatScore(senal)">
+                <strong class="score-val">{{ formatScore(senal) }}</strong>
+                <span class="score-label">{{ scoreLabel(senal.tipo) }}</span>
+              </p>
+            }
+          </div>
+        </article>
+      }
+    </section>
+
+    <nav class="pagination" aria-label="Paginación de señales">
+      <p class="pagination__summary" aria-live="polite">
+        Mostrando {{ rangoActual().inicio }}–{{ rangoActual().fin }} de {{ rangoActual().total }}
+      </p>
+
+      <div class="pagination__controls">
+        <button
+          type="button"
+          class="pagination-btn"
+          (click)="previousPage()"
+          [disabled]="currentPage() <= 1"
+        >
+          Anterior
+        </button>
+
+        <p class="pagination__page" aria-live="polite">Página {{ currentPage() }} de {{ totalPages() }}</p>
+
+        <button
+          type="button"
+          class="pagination-btn"
+          (click)="nextPage()"
+          [disabled]="currentPage() >= totalPages()"
+        >
+          Siguiente
+        </button>
+      </div>
+    </nav>
+  }
+</main>

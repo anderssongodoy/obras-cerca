@@ -10,11 +10,12 @@
 
 html,
 body {
-  height: 100%;
+  min-height: 100%;
   font-family: var(--font-sans);
   color: var(--ink);
   background: var(--surface);
-  overflow: hidden; // app-shell del mapa ocupa fullscreen
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .sr-only {

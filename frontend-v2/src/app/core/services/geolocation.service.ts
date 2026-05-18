@@ -21,14 +21,18 @@ export class GeolocationService {
     return this.distritos.ubigeoFromCoords(pos.coords.latitude, pos.coords.longitude);
   });
 
+
+
   constructor() {
     if (!('geolocation' in navigator)) {
       this.status.set('unavailable');
     }
 
-    // Marker de ubicación
+    // Marker de ubicación — también observa initialized() para re-sincronizar
+    // cuando el mapa se destruye y recrea al navegar entre rutas.
     effect(() => {
       const pos = this.position();
+      if (!this.mapService.initialized()) return;
       if (pos) {
         this.mapService.addUserMarker(pos.coords.latitude, pos.coords.longitude);
       } else {
@@ -36,10 +40,11 @@ export class GeolocationService {
       }
     });
 
-    // Círculo de radio — reacciona a posición Y a cambios de radioM
+    // Círculo de radio — reacciona a posición, radioM E initialized()
     effect(() => {
       const pos = this.position();
       const radioM = this.obras.radioM();
+      if (!this.mapService.initialized()) return;
       if (pos) {
         this.mapService.syncRadiusCircle(pos.coords.latitude, pos.coords.longitude, radioM);
       } else {

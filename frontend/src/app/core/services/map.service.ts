@@ -15,14 +15,18 @@ import type { Obra, Tramo } from '../models/obra.model';
 import { makeIcon } from '../../features/mapa/utils/marker-factory';
 import { popupHtml } from '../../features/mapa/utils/popup-html';
 
-import * as L from 'leaflet';
-import 'leaflet.markercluster';
+import type * as Leaflet from 'leaflet';
+import type {} from 'leaflet.markercluster';
+
+declare const L: typeof Leaflet & {
+  markerClusterGroup: (options?: Leaflet.MarkerClusterGroupOptions) => Leaflet.MarkerClusterGroup;
+};
 
 @Injectable({ providedIn: 'root' })
 export class MapService {
-  private map: any = null;
-  private clusterGroup: any = null;
-  private readonly markersById = new Map<number, any>();
+  private map: Leaflet.Map | null = null;
+  private clusterGroup: Leaflet.MarkerClusterGroup | null = null;
+  private readonly markersById = new Map<number, Leaflet.Marker>();
   private readonly obrasById = new Map<number, Obra>();
   private selectedId: number | null = null;
   private filterChip: FiltroChip = 'todas';
@@ -196,7 +200,7 @@ export class MapService {
     // No-op: la selección se expresa solo con .marker-pin.is-selected
   }
 
-  private createClusterIcon(count: number): any {
+  private createClusterIcon(count: number): Leaflet.DivIcon {
     const size = count < 10 ? 40 : count < 30 ? 52 : 64;
     return L.divIcon({
       className: '',

@@ -9,6 +9,7 @@ para que la Lambda no espere los minutos que demora el scraping completo.
 from __future__ import annotations
 
 import asyncio
+import os
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -43,6 +44,15 @@ def _run_pipeline() -> None:
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / f"{datetime.utcnow():%Y-%m-%d}.log"
 
+    # Los scripts 03/04/05 importan `from app.clients...` — necesitan que `backend/`
+    # esté en PYTHONPATH para encontrar el paquete `app/`. systemd no lo setea, así
+    # que lo inyectamos aquí al spawnear el subproceso.
+    env = os.environ.copy()
+    backend_dir = str(SCRIPTS_DIR.parent)
+    env["PYTHONPATH"] = backend_dir + (
+        os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""
+    )
+
     with log_file.open("a", encoding="utf-8") as out:
         out.write(f"\n=== ingesta diaria {datetime.utcnow().isoformat()} ===\n")
         for script in PIPELINE:
@@ -56,6 +66,7 @@ def _run_pipeline() -> None:
                 result = subprocess.run(
                     ["python", str(path)],
                     cwd=SCRIPTS_DIR.parent,
+                    env=env,
                     stdout=out,
                     stderr=subprocess.STDOUT,
                     timeout=900,  # 15 min por script
